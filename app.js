@@ -2,6 +2,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ═══════════════════════════════════════════════════
+// 0. SUPABASE CLIENT
+// ═══════════════════════════════════════════════════
+const SUPABASE_URL = 'https://nyrzmcjjgmtdvvdtfdld.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55cnptY2pqZ210ZHZ2ZHRmZGxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MDk3MjIsImV4cCI6MjA4NjM4NTcyMn0.yZzbyuuSPXo08kj9YceRLq2vPVX_oiC1rakpZeb_T_c';
+const sbClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+// ═══════════════════════════════════════════════════
 // 1. CONSTANTS & CONFIG
 // ═══════════════════════════════════════════════════
 const PRESS_SPEED = 0.004;   // Approach speed (slower, more dramatic)
@@ -291,6 +298,7 @@ function loadSave() {
 
 function saveSave() {
   localStorage.setItem(SAVE_KEY, JSON.stringify(economy));
+  saveToCloud();
 }
 
 function addCoins(n) {
@@ -317,6 +325,281 @@ function unlockObject(id) {
 
 function getObjData(id) {
   return OBJECTS.find(o => o.id === id);
+}
+
+// ═══════════════════════════════════════════════════
+// 3b. AUTH & CLOUD SAVE SYSTEM
+// ═══════════════════════════════════════════════════
+let currentUser = null;
+let isGuest = false;
+let _cloudSaveTimer = null;
+let _lastCloudSave = 0;
+const CLOUD_SAVE_DEBOUNCE = 3000;
+
+function updateAuthUI() {
+  var authBtn = document.getElementById('auth-btn');
+  var userDisplay = document.getElementById('user-display-name');
+  var overlay = document.getElementById('auth-overlay');
+  if (currentUser) {
+    if (authBtn) authBtn.textContent = 'Abmelden';
+    if (userDisplay) {
+      var name = currentUser.user_metadata && currentUser.user_metadata.display_name
+        ? currentUser.user_metadata.display_name
+        : currentUser.email;
+      userDisplay.textContent = name;
+      userDisplay.style.display = 'inline';
+    }
+    if (overlay) overlay.classList.remove('open');
+  } else {
+    if (authBtn) authBtn.textContent = 'Anmelden';
+    if (userDisplay) {
+      userDisplay.textContent = '';
+      userDisplay.style.display = 'none';
+    }
+  }
+}
+
+function showAuthError(msg) {
+  var el = document.getElementById('auth-error');
+  if (el) {
+    el.textContent = msg;
+    el.style.display = msg ? 'block' : 'none';
+  }
+}
+
+async function signUp(email, password, displayName) {
+  if (!sbClient) return { user: null, error: 'Supabase nicht verfügbar' };
+  var { data, error } = await sbClient.auth.signUp({
+    email: email,
+    password: password,
+    options: { data: { display_name: displayName || email.split('@')[0] } }
+  });
+  if (error) return { user: null, error: error.message };
+  currentUser = data.user;
+  isGuest = false;
+  updateAuthUI();
+  await loadCloudSave();
+  return { user: data.user, error: null };
+}
+
+async function signIn(email, password) {
+  if (!sbClient) return { user: null, error: 'Supabase nicht verfügbar' };
+  var { data, error } = await sbClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+  if (error) return { user: null, error: error.message };
+  currentUser = data.user;
+  isGuest = false;
+  updateAuthUI();
+  await loadCloudSave();
+  return { user: data.user, error: null };
+}
+
+async function signOut() {
+  if (!sbClient) return;
+  await sbClient.auth.signOut();
+  currentUser = null;
+  isGuest = false;
+  updateAuthUI();
+  var overlay = document.getElementById('auth-overlay');
+  if (overlay) overlay.classList.add('open');
+}
+
+async function loadCloudSave() {
+  if (!sbClient || !currentUser) return;
+  try {
+    var { data, error } = await sbClient
+      .from('profiles')
+      .select('coins, unlocked, total_crushed, selected_object, recent_objects, updated_at')
+      .eq('id', currentUser.id)
+      .single();
+    if (error || !data) return;
+    // Merge: higher coins, union of unlocked, higher totalCrushed
+    if (data.coins > economy.coins) economy.coins = data.coins;
+    if (data.total_crushed > economy.totalCrushed) economy.totalCrushed = data.total_crushed;
+    if (data.unlocked && Array.isArray(data.unlocked)) {
+      var merged = new Set(economy.unlocked);
+      data.unlocked.forEach(function(id) { merged.add(id); });
+      economy.unlocked = Array.from(merged);
+    }
+    if (data.selected_object) selectedObjId = data.selected_object;
+    if (data.recent_objects && Array.isArray(data.recent_objects) && data.recent_objects.length > 0) {
+      recentObjects = data.recent_objects;
+    }
+    // Update UI
+    var coinEl = document.getElementById('coin-amount');
+    if (coinEl) coinEl.textContent = economy.coins;
+    var crushEl = document.getElementById('crush-count');
+    if (crushEl) crushEl.textContent = economy.totalCrushed;
+    crushCount = economy.totalCrushed;
+    saveSave(); // sync merged data back to localStorage
+  } catch (e) {
+    console.warn('Cloud save load failed:', e);
+  }
+}
+
+function saveToCloud() {
+  if (!sbClient || !currentUser || isGuest) return;
+  var now = Date.now();
+  if (now - _lastCloudSave < CLOUD_SAVE_DEBOUNCE) {
+    if (_cloudSaveTimer) clearTimeout(_cloudSaveTimer);
+    _cloudSaveTimer = setTimeout(saveToCloud, CLOUD_SAVE_DEBOUNCE);
+    return;
+  }
+  _lastCloudSave = now;
+  if (_cloudSaveTimer) { clearTimeout(_cloudSaveTimer); _cloudSaveTimer = null; }
+  sbClient
+    .from('profiles')
+    .upsert({
+      id: currentUser.id,
+      coins: economy.coins,
+      unlocked: economy.unlocked,
+      total_crushed: economy.totalCrushed,
+      selected_object: selectedObjId,
+      recent_objects: recentObjects,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' })
+    .then(function(res) {
+      if (res.error) console.warn('Cloud save failed:', res.error.message);
+    });
+}
+
+function _saveToCloudImmediate() {
+  if (!sbClient || !currentUser || isGuest) return;
+  _lastCloudSave = Date.now();
+  if (_cloudSaveTimer) { clearTimeout(_cloudSaveTimer); _cloudSaveTimer = null; }
+  // Use sendBeacon for beforeunload reliability if available
+  var body = JSON.stringify({
+    id: currentUser.id,
+    coins: economy.coins,
+    unlocked: economy.unlocked,
+    total_crushed: economy.totalCrushed,
+    selected_object: selectedObjId,
+    recent_objects: recentObjects,
+    updated_at: new Date().toISOString()
+  });
+  // Fall back to regular upsert
+  sbClient
+    .from('profiles')
+    .upsert(JSON.parse(body), { onConflict: 'id' })
+    .then(function(res) {
+      if (res.error) console.warn('Cloud save failed:', res.error.message);
+    });
+}
+
+function wireAuthUI() {
+  var overlay = document.getElementById('auth-overlay');
+  var form = document.getElementById('auth-form');
+  var emailInput = document.getElementById('auth-email');
+  var passwordInput = document.getElementById('auth-password');
+  var displayNameInput = document.getElementById('auth-name');
+  var submitBtn = document.getElementById('auth-submit');
+  var toggleBtn = document.getElementById('auth-switch');
+  var nameGroup = document.getElementById('auth-name-group');
+  var headingEl = document.getElementById('auth-heading');
+  var toggleContainer = document.getElementById('auth-toggle');
+  var guestBtn = document.getElementById('auth-guest');
+  var authBtn = document.getElementById('auth-btn');
+  var authMode = 'login'; // 'login' or 'register'
+
+  if (form) {
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      showAuthError('');
+      var email = emailInput ? emailInput.value.trim() : '';
+      var password = passwordInput ? passwordInput.value : '';
+      if (!email || !password) { showAuthError('Bitte E-Mail und Passwort eingeben.'); return; }
+      if (submitBtn) submitBtn.disabled = true;
+      var result;
+      if (authMode === 'register') {
+        var displayName = displayNameInput ? displayNameInput.value.trim() : '';
+        result = await signUp(email, password, displayName);
+      } else {
+        result = await signIn(email, password);
+      }
+      if (submitBtn) submitBtn.disabled = false;
+      if (result.error) {
+        showAuthError(result.error);
+      }
+    });
+  }
+
+  if (toggleContainer) {
+    toggleContainer.addEventListener('click', function(e) {
+      if (e.target.tagName !== 'A') return;
+      e.preventDefault();
+      if (authMode === 'login') {
+        authMode = 'register';
+        if (submitBtn) submitBtn.textContent = 'REGISTRIEREN';
+        if (headingEl) headingEl.textContent = 'Registrieren';
+        toggleContainer.innerHTML = 'Bereits ein Konto? <a id="auth-switch">Anmelden</a>';
+        if (nameGroup) nameGroup.classList.add('show');
+      } else {
+        authMode = 'login';
+        if (submitBtn) submitBtn.textContent = 'ANMELDEN';
+        if (headingEl) headingEl.textContent = 'Anmelden';
+        toggleContainer.innerHTML = 'Noch kein Konto? <a id="auth-switch">Registrieren</a>';
+        if (nameGroup) nameGroup.classList.remove('show');
+      }
+      showAuthError('');
+    });
+  }
+
+  if (guestBtn) {
+    guestBtn.addEventListener('click', function() {
+      isGuest = true;
+      currentUser = null;
+      if (overlay) overlay.classList.remove('open');
+      updateAuthUI();
+    });
+  }
+
+  if (authBtn) {
+    authBtn.addEventListener('click', function() {
+      if (currentUser) {
+        signOut();
+      } else {
+        isGuest = false;
+        if (overlay) overlay.classList.add('open');
+      }
+    });
+  }
+}
+
+async function initAuth() {
+  if (!sbClient) {
+    isGuest = true;
+    return;
+  }
+  try {
+    var { data } = await sbClient.auth.getSession();
+    if (data && data.session && data.session.user) {
+      currentUser = data.session.user;
+      isGuest = false;
+      updateAuthUI();
+      await loadCloudSave();
+    } else {
+      // No session — show auth overlay
+      var overlay = document.getElementById('auth-overlay');
+      if (overlay) overlay.classList.add('open');
+    }
+  } catch (e) {
+    console.warn('Auth session check failed:', e);
+    isGuest = true;
+  }
+  // Listen for auth state changes (token refresh, sign out from other tab)
+  sbClient.auth.onAuthStateChange(function(event, session) {
+    if (event === 'SIGNED_IN' && session && session.user) {
+      currentUser = session.user;
+      isGuest = false;
+      updateAuthUI();
+      loadCloudSave();
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      updateAuthUI();
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════
@@ -5546,6 +5829,15 @@ function init() {
   // Setup shop
   setupShop();
   updateSidePanel();
+
+  // Auth UI wiring & session restore
+  wireAuthUI();
+  initAuth();
+
+  // Save to cloud before page closes
+  window.addEventListener('beforeunload', function() {
+    _saveToCloudImmediate();
+  });
 
   // Clock
   clock = new THREE.Clock();
