@@ -726,8 +726,8 @@
       <div class="hazard"></div>
       <div id="admin-login-error"></div>
       <form id="admin-login-form" autocomplete="off">
-        <label for="admin-email">E-Mail</label>
-        <input type="email" id="admin-email" placeholder="name@example.com" required autocomplete="email">
+        <label for="admin-login-id">E-Mail oder Benutzername</label>
+        <input type="text" id="admin-login-id" placeholder="E-Mail oder Benutzername" required autocomplete="username">
         <label for="admin-password">Passwort</label>
         <input type="password" id="admin-password" placeholder="Passwort" required autocomplete="current-password">
         <button type="submit" id="admin-login-btn">ANMELDEN</button>
@@ -1204,7 +1204,7 @@
 
     function setupLoginForm() {
       var form = document.getElementById('admin-login-form');
-      var emailInput = document.getElementById('admin-email');
+      var loginIdInput = document.getElementById('admin-login-id');
       var passwordInput = document.getElementById('admin-password');
       var submitBtn = document.getElementById('admin-login-btn');
       var errorEl = document.getElementById('admin-login-error');
@@ -1216,22 +1216,24 @@
         submitBtn.disabled = true;
         submitBtn.textContent = 'LADEN...';
 
-        var email = emailInput.value.trim();
+        var loginId = loginIdInput.value.trim();
         var password = passwordInput.value;
 
-        if (!email || !password) {
-          errorEl.textContent = 'Bitte E-Mail und Passwort eingeben.';
+        if (!loginId || !password) {
+          errorEl.textContent = 'Bitte alle Felder ausfuellen.';
           errorEl.classList.add('show');
           submitBtn.disabled = false;
           submitBtn.textContent = 'ANMELDEN';
           return;
         }
 
+        // Support both email and username (username maps to username@pressit.game)
+        var email = loginId.includes('@') ? loginId : loginId.toLowerCase() + '@pressit.game';
         var { data, error } = await sb.auth.signInWithPassword({ email: email, password: password });
 
         if (error) {
           var msg = 'Anmeldung fehlgeschlagen.';
-          if (error.message.includes('Invalid login')) msg = 'Falsche E-Mail oder Passwort.';
+          if (error.message.includes('Invalid login')) msg = 'Falsche Anmeldedaten.';
           errorEl.textContent = msg;
           errorEl.classList.add('show');
           submitBtn.disabled = false;
