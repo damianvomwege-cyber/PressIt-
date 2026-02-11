@@ -339,7 +339,9 @@ const CLOUD_SAVE_DEBOUNCE = 3000;
 function updateAuthUI() {
   var authBtn = document.getElementById('auth-btn');
   var userDisplay = document.getElementById('user-display-name');
-  var overlay = document.getElementById('auth-overlay');
+  // Remove old admin link if present
+  var oldAdmin = document.getElementById('admin-link');
+  if (oldAdmin) oldAdmin.remove();
   if (currentUser) {
     if (authBtn) authBtn.textContent = 'Abmelden';
     if (userDisplay) {
@@ -349,7 +351,31 @@ function updateAuthUI() {
       userDisplay.textContent = name;
       userDisplay.style.display = 'inline';
     }
-    if (overlay) overlay.classList.remove('open');
+    // Check if admin and add admin link
+    if (sbClient) {
+      sbClient.from('profiles').select('is_admin').eq('id', currentUser.id).single()
+        .then(function(res) {
+          if (res.data && res.data.is_admin) {
+            var userInfo = document.getElementById('user-info');
+            if (userInfo && !document.getElementById('admin-link')) {
+              var link = document.createElement('a');
+              link.id = 'admin-link';
+              link.href = '/admin';
+              link.textContent = 'ADMIN';
+              link.style.cssText = 'padding:6px 12px;border:1px solid rgba(232,122,30,0.4);border-radius:6px;background:rgba(232,122,30,0.15);color:#e87a1e;font-family:"Bebas Neue",sans-serif;font-size:14px;letter-spacing:1.5px;cursor:pointer;transition:all 0.2s;text-decoration:none;';
+              link.addEventListener('mouseenter', function() {
+                link.style.borderColor = '#e87a1e';
+                link.style.boxShadow = '0 0 12px rgba(232,122,30,0.3)';
+              });
+              link.addEventListener('mouseleave', function() {
+                link.style.borderColor = 'rgba(232,122,30,0.4)';
+                link.style.boxShadow = 'none';
+              });
+              userInfo.insertBefore(link, userInfo.firstChild);
+            }
+          }
+        });
+    }
   } else {
     if (authBtn) authBtn.textContent = 'Anmelden';
     if (userDisplay) {
@@ -360,11 +386,7 @@ function updateAuthUI() {
 }
 
 function showAuthError(msg) {
-  var el = document.getElementById('auth-error');
-  if (el) {
-    el.textContent = msg;
-    el.style.display = msg ? 'block' : 'none';
-  }
+  // Auth error display moved to separate login/register pages
 }
 
 async function signUp(email, password, displayName) {
@@ -405,8 +427,7 @@ async function signOut() {
   currentUser = null;
   isGuest = false;
   updateAuthUI();
-  var overlay = document.getElementById('auth-overlay');
-  if (overlay) overlay.classList.add('open');
+  window.location.href = '/login';
 }
 
 async function loadCloudSave() {
@@ -492,79 +513,14 @@ function _saveToCloudImmediate() {
 }
 
 function wireAuthUI() {
-  var overlay = document.getElementById('auth-overlay');
-  var form = document.getElementById('auth-form');
-  var emailInput = document.getElementById('auth-email');
-  var passwordInput = document.getElementById('auth-password');
-  var displayNameInput = document.getElementById('auth-name');
-  var submitBtn = document.getElementById('auth-submit');
-  var toggleBtn = document.getElementById('auth-switch');
-  var nameGroup = document.getElementById('auth-name-group');
-  var headingEl = document.getElementById('auth-heading');
-  var toggleContainer = document.getElementById('auth-toggle');
-  var guestBtn = document.getElementById('auth-guest');
   var authBtn = document.getElementById('auth-btn');
-  var authMode = 'login'; // 'login' or 'register'
-
-  if (form) {
-    form.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      showAuthError('');
-      var email = emailInput ? emailInput.value.trim() : '';
-      var password = passwordInput ? passwordInput.value : '';
-      if (!email || !password) { showAuthError('Bitte E-Mail und Passwort eingeben.'); return; }
-      if (submitBtn) submitBtn.disabled = true;
-      var result;
-      if (authMode === 'register') {
-        var displayName = displayNameInput ? displayNameInput.value.trim() : '';
-        result = await signUp(email, password, displayName);
-      } else {
-        result = await signIn(email, password);
-      }
-      if (submitBtn) submitBtn.disabled = false;
-      if (result.error) {
-        showAuthError(result.error);
-      }
-    });
-  }
-
-  if (toggleContainer) {
-    toggleContainer.addEventListener('click', function(e) {
-      if (e.target.tagName !== 'A') return;
-      e.preventDefault();
-      if (authMode === 'login') {
-        authMode = 'register';
-        if (submitBtn) submitBtn.textContent = 'REGISTRIEREN';
-        if (headingEl) headingEl.textContent = 'Registrieren';
-        toggleContainer.innerHTML = 'Bereits ein Konto? <a id="auth-switch">Anmelden</a>';
-        if (nameGroup) nameGroup.classList.add('show');
-      } else {
-        authMode = 'login';
-        if (submitBtn) submitBtn.textContent = 'ANMELDEN';
-        if (headingEl) headingEl.textContent = 'Anmelden';
-        toggleContainer.innerHTML = 'Noch kein Konto? <a id="auth-switch">Registrieren</a>';
-        if (nameGroup) nameGroup.classList.remove('show');
-      }
-      showAuthError('');
-    });
-  }
-
-  if (guestBtn) {
-    guestBtn.addEventListener('click', function() {
-      isGuest = true;
-      currentUser = null;
-      if (overlay) overlay.classList.remove('open');
-      updateAuthUI();
-    });
-  }
 
   if (authBtn) {
     authBtn.addEventListener('click', function() {
       if (currentUser) {
         signOut();
       } else {
-        isGuest = false;
-        if (overlay) overlay.classList.add('open');
+        window.location.href = '/login';
       }
     });
   }
@@ -583,9 +539,8 @@ async function initAuth() {
       updateAuthUI();
       await loadCloudSave();
     } else {
-      // No session — show auth overlay
-      var overlay = document.getElementById('auth-overlay');
-      if (overlay) overlay.classList.add('open');
+      // No session — default to guest mode (user can click Anmelden to go to /login)
+      isGuest = true;
     }
   } catch (e) {
     console.warn('Auth session check failed:', e);

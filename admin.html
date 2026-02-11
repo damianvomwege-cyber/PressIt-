@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PressIt! — Admin Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --steel-dark: #1a1a1e;
+      --steel-mid: #2d2d33;
+      --steel-light: #4a4a52;
+      --accent-red: #c41e1e;
+      --accent-red-glow: #ff3333;
+      --accent-orange: #e87a1e;
+      --accent-yellow: #f5c542;
+      --accent-green: #2ecc40;
+      --accent-coin: #f5c542;
+      --text-primary: #e8e6e1;
+      --text-secondary: #8a8880;
+      --warning-stripe: repeating-linear-gradient(
+        -45deg, #f5c542, #f5c542 10px, #1a1a1e 10px, #1a1a1e 20px
+      );
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--steel-dark);
+      color: var(--text-primary);
+      font-family: 'Barlow Condensed', sans-serif;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    /* Background hazard texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 40px,
+          rgba(245,197,66,0.015) 40px,
+          rgba(245,197,66,0.015) 42px
+        );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--steel-light); border-radius: 3px; }
+
+    /* ── ACCESS DENIED ── */
+    #access-denied {
+      display: none;
+      position: fixed; inset: 0;
+      background: var(--steel-dark);
+      flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+      z-index: 9999;
+    }
+    #access-denied.show { display: flex; }
+    #access-denied .lock-icon { font-size: 64px; opacity: 0.4; }
+    #access-denied h1 {
+      font-family: 'Bebas Neue', sans-serif; font-size: 48px;
+      letter-spacing: 4px; color: var(--accent-red);
+    }
+    #access-denied p {
+      font-family: 'JetBrains Mono', monospace; font-size: 14px;
+      color: var(--text-secondary); max-width: 400px; text-align: center;
+      line-height: 1.6;
+    }
+    #access-denied a {
+      margin-top: 12px; padding: 10px 28px;
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+      background: rgba(45,45,51,0.8); color: var(--text-primary);
+      font-family: 'Bebas Neue', sans-serif; font-size: 18px;
+      letter-spacing: 2px; text-decoration: none; transition: all 0.2s;
+    }
+    #access-denied a:hover {
+      border-color: var(--accent-red); color: var(--accent-red);
+      box-shadow: 0 0 16px rgba(196,30,30,0.2);
+    }
+
+    /* ── LOADING ── */
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 9998;
+      background: var(--steel-dark);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+      transition: opacity 0.5s ease;
+    }
+    #loading-screen.hidden { opacity: 0; pointer-events: none; }
+    #loading-screen .title {
+      font-family: 'Bebas Neue', sans-serif; font-size: 42px; letter-spacing: 5px;
+    }
+    #loading-screen .title span { color: var(--accent-red); }
+    #loading-screen .subtitle {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      color: var(--text-secondary); letter-spacing: 2px; text-transform: uppercase;
+    }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--steel-mid);
+      border-top-color: var(--accent-red); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── TOP NAV ── */
+    #top-nav {
+      position: sticky; top: 0; z-index: 500;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; height: 56px;
+      background: linear-gradient(180deg, rgba(26,26,30,0.98), rgba(26,26,30,0.92));
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .nav-left { display: flex; align-items: center; gap: 12px; }
+    .nav-logo {
+      font-family: 'Bebas Neue', sans-serif; font-size: 26px;
+      letter-spacing: 3px; display: flex; align-items: center; gap: 8px;
+    }
+    .nav-logo .press { color: var(--accent-red); }
+    .nav-logo .admin-badge {
+      font-size: 11px; letter-spacing: 2px;
+      padding: 2px 8px; border-radius: 4px;
+      background: rgba(196,30,30,0.15); border: 1px solid rgba(196,30,30,0.3);
+      color: var(--accent-red-glow);
+    }
+    .hazard-bar {
+      width: 32px; height: 5px;
+      background: var(--warning-stripe); border-radius: 1px;
+    }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    #admin-name {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .nav-btn {
+      padding: 6px 14px; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px; background: rgba(45,45,51,0.6);
+      color: var(--text-primary); font-family: 'Bebas Neue', sans-serif;
+      font-size: 14px; letter-spacing: 1.5px; cursor: pointer;
+      transition: all 0.2s; text-decoration: none; display: inline-flex;
+      align-items: center; gap: 6px;
+    }
+    .nav-btn:hover {
+      border-color: rgba(255,255,255,0.25); background: rgba(45,45,51,0.9);
+      transform: translateY(-1px);
+    }
+    .nav-btn:active {
+      transform: translateY(1px) scale(0.97);
+    }
+    .nav-btn.danger:hover {
+      border-color: var(--accent-red); color: var(--accent-red);
+    }
+
+    @keyframes staggerIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── MAIN CONTENT ── */
+    #main-content {
+      display: none; max-width: 1200px; margin: 0 auto;
+      padding: 24px 24px 48px; position: relative; z-index: 1;
+    }
+    #main-content.show { display: block; animation: staggerIn 0.4s ease-out; }
+
+    /* ── STATS ROW ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: rgba(45,45,51,0.4);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px; padding: 20px;
+      display: flex; flex-direction: column; gap: 4px;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      animation: staggerIn 0.4s ease-out both;
+    }
+    .stat-card:nth-child(1) { animation-delay: 0.05s; }
+    .stat-card:nth-child(2) { animation-delay: 0.1s; }
+    .stat-card:nth-child(3) { animation-delay: 0.15s; }
+    .stat-card:nth-child(4) { animation-delay: 0.2s; }
+    .stat-card:hover {
+      border-color: rgba(255,255,255,0.12);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .stat-card .stat-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      color: var(--text-secondary); letter-spacing: 1.5px; text-transform: uppercase;
+    }
+    .stat-card .stat-value {
+      font-family: 'Bebas Neue', sans-serif; font-size: 36px;
+      line-height: 1.1; letter-spacing: 1px;
+    }
+    .stat-card .stat-value.red { color: var(--accent-red-glow); }
+    .stat-card .stat-value.yellow { color: var(--accent-yellow); }
+    .stat-card .stat-value.green { color: var(--accent-green); }
+    .stat-card .stat-value.orange { color: var(--accent-orange); }
+
+    /* ── TABS ── */
+    .tabs-bar {
+      display: flex; gap: 4px; margin-bottom: 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding-bottom: 0; overflow-x: auto;
+    }
+    .tab-btn {
+      padding: 10px 20px; border: none; border-bottom: 2px solid transparent;
+      background: none; color: var(--text-secondary);
+      font-family: 'Bebas Neue', sans-serif; font-size: 17px;
+      letter-spacing: 2px; cursor: pointer; transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active {
+      color: var(--accent-red-glow);
+      border-bottom-color: var(--accent-red);
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: staggerIn 0.3s ease-out; }
+
+    /* ── SEARCH BAR ── */
+    .search-bar {
+      display: flex; gap: 10px; margin-bottom: 16px; align-items: center;
+    }
+    .search-input {
+      flex: 1; padding: 10px 14px;
+      background: rgba(45,45,51,0.5); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+    .search-input:hover {
+      border-color: rgba(255,255,255,0.18);
+    }
+    .search-input:focus {
+      border-color: var(--accent-red);
+      box-shadow: 0 0 12px rgba(196,30,30,0.15);
+      background: rgba(45,45,51,0.8);
+    }
+    .search-input::placeholder { color: var(--steel-light); }
+
+    /* ── TABLE ── */
+    .data-table-wrap {
+      overflow-x: auto; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .data-table {
+      width: 100%; border-collapse: collapse; min-width: 800px;
+    }
+    .data-table th {
+      background: rgba(45,45,51,0.6); padding: 10px 14px;
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      color: var(--text-secondary); letter-spacing: 1.5px;
+      text-transform: uppercase; text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      position: sticky; top: 0;
+    }
+    .data-table td {
+      padding: 10px 14px; font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.03);
+      vertical-align: middle; transition: background 0.15s;
+    }
+    .data-table tr:hover td { background: rgba(45,45,51,0.3); }
+    .data-table .email { color: var(--text-secondary); font-size: 11px; }
+    .data-table .coins { color: var(--accent-coin); font-family: 'Bebas Neue', sans-serif; font-size: 16px; }
+    .data-table .crushed { color: var(--accent-orange); font-family: 'Bebas Neue', sans-serif; font-size: 16px; }
+    .admin-badge-sm {
+      display: inline-block; padding: 2px 6px; border-radius: 3px;
+      font-size: 9px; letter-spacing: 1px; font-family: 'JetBrains Mono', monospace;
+    }
+    .admin-badge-sm.yes {
+      background: rgba(196,30,30,0.15); color: var(--accent-red-glow);
+      border: 1px solid rgba(196,30,30,0.3);
+    }
+    .admin-badge-sm.no {
+      background: rgba(255,255,255,0.03); color: var(--steel-light);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* ── ACTION BUTTONS ── */
+    .action-btns { display: flex; gap: 4px; }
+    .act-btn {
+      width: 30px; height: 30px; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.08); background: rgba(45,45,51,0.5);
+      color: var(--text-secondary); font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .act-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--text-primary); transform: scale(1.1); }
+    .act-btn:active { transform: scale(0.92); }
+    .act-btn.danger:hover { border-color: var(--accent-red); color: var(--accent-red); }
+    .act-btn.warn:hover { border-color: var(--accent-orange); color: var(--accent-orange); }
+
+    /* ── PAGINATION ── */
+    .pagination {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; margin-top: 16px;
+    }
+    .page-btn {
+      padding: 6px 12px; border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px; background: rgba(45,45,51,0.4);
+      color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; cursor: pointer; transition: all 0.15s;
+    }
+    .page-btn:hover:not(:disabled) {
+      border-color: rgba(255,255,255,0.2); color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+    .page-btn:active:not(:disabled) {
+      transform: translateY(1px) scale(0.96);
+    }
+    .page-btn:disabled { opacity: 0.3; cursor: default; }
+    .page-btn.active {
+      border-color: var(--accent-red); color: var(--accent-red-glow);
+      background: rgba(196,30,30,0.1);
+    }
+    .page-info {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* ── LEADERBOARD ── */
+    .lb-section { margin-bottom: 32px; }
+    .lb-title {
+      font-family: 'Bebas Neue', sans-serif; font-size: 24px;
+      letter-spacing: 2px; margin-bottom: 12px;
+      color: var(--text-secondary);
+    }
+    .lb-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 10px;
+    }
+    .lb-card {
+      display: flex; align-items: center; gap: 14px;
+      background: rgba(45,45,51,0.3); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px; padding: 14px 16px;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .lb-card:hover {
+      border-color: rgba(255,255,255,0.12);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+    .lb-rank {
+      font-family: 'Bebas Neue', sans-serif; font-size: 28px;
+      min-width: 36px; text-align: center;
+    }
+    .lb-rank.gold { color: #ffd700; }
+    .lb-rank.silver { color: #c0c0c0; }
+    .lb-rank.bronze { color: #cd7f32; }
+    .lb-rank.normal { color: var(--steel-light); }
+    .lb-info { flex: 1; min-width: 0; }
+    .lb-name {
+      font-family: 'Barlow Condensed', sans-serif; font-size: 16px;
+      font-weight: 600; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lb-stat {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .lb-value {
+      font-family: 'Bebas Neue', sans-serif; font-size: 22px;
+    }
+    .lb-value.coins { color: var(--accent-coin); }
+    .lb-value.crushes { color: var(--accent-orange); }
+
+    /* ── OBJECTS GRID ── */
+    .obj-filter-row {
+      display: flex; gap: 6px; margin-bottom: 16px;
+      flex-wrap: wrap; align-items: center;
+    }
+    .obj-filter-btn {
+      padding: 5px 12px; border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px; background: rgba(45,45,51,0.4);
+      color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; cursor: pointer; transition: all 0.15s;
+    }
+    .obj-filter-btn:hover { border-color: rgba(255,255,255,0.15); color: var(--text-primary); transform: translateY(-1px); }
+    .obj-filter-btn:active { transform: translateY(1px) scale(0.96); }
+    .obj-filter-btn.active {
+      border-color: var(--accent-red); color: var(--accent-red);
+      background: rgba(196,30,30,0.1);
+    }
+    .obj-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    .obj-card {
+      background: rgba(30,30,34,0.7); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px; padding: 14px 10px;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .obj-card:hover {
+      border-color: rgba(255,255,255,0.12);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    .obj-card .icon { font-size: 32px; }
+    .obj-card .obj-name {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      color: var(--text-primary); text-align: center;
+    }
+    .obj-card .obj-meta {
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      color: var(--text-secondary); text-align: center; line-height: 1.5;
+    }
+    .obj-card .obj-meta .price { color: var(--accent-coin); }
+    .obj-card .obj-meta .reward { color: var(--accent-green); }
+
+    /* ── SETTINGS ── */
+    .settings-section {
+      background: rgba(45,45,51,0.3); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px; padding: 20px; margin-bottom: 16px;
+      transition: border-color 0.2s;
+    }
+    .settings-section:hover { border-color: rgba(255,255,255,0.1); }
+    .settings-section h3 {
+      font-family: 'Bebas Neue', sans-serif; font-size: 20px;
+      letter-spacing: 2px; color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+    .setting-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .setting-value {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      color: var(--text-primary); word-break: break-all;
+      max-width: 500px; text-align: right;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      background: rgba(10,10,12,0.85); backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+      animation: fadeIn 0.2s ease;
+    }
+    .modal-overlay.open { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal {
+      width: 100%; max-width: 480px;
+      background: var(--steel-dark); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px; padding: 28px; margin: 20px;
+      animation: modalSlideIn 0.25s ease-out;
+    }
+    @keyframes modalSlideIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal h2 {
+      font-family: 'Bebas Neue', sans-serif; font-size: 24px;
+      letter-spacing: 2px; margin-bottom: 4px;
+    }
+    .modal .modal-sub {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      color: var(--text-secondary); margin-bottom: 20px;
+    }
+    .modal .hazard-line {
+      height: 3px; background: var(--warning-stripe);
+      border-radius: 2px; margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group label {
+      display: block; font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: var(--text-secondary);
+      letter-spacing: 1px; text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .form-group input, .form-group select {
+      width: 100%; padding: 10px 14px;
+      background: rgba(45,45,51,0.6); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+    .form-group input:hover, .form-group select:hover {
+      border-color: rgba(255,255,255,0.18);
+    }
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--accent-red);
+      box-shadow: 0 0 12px rgba(196,30,30,0.15);
+      background: rgba(45,45,51,0.8);
+    }
+    .modal-actions {
+      display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;
+    }
+    .modal-btn {
+      padding: 10px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(45,45,51,0.6); color: var(--text-primary);
+      font-family: 'Bebas Neue', sans-serif; font-size: 16px;
+      letter-spacing: 2px; cursor: pointer; transition: all 0.15s;
+    }
+    .modal-btn:hover { border-color: rgba(255,255,255,0.25); transform: translateY(-1px); }
+    .modal-btn:active { transform: translateY(1px) scale(0.98); }
+    .modal-btn.primary {
+      border-color: var(--accent-red); color: var(--accent-red-glow);
+      background: rgba(196,30,30,0.1);
+    }
+    .modal-btn.primary:hover {
+      background: rgba(196,30,30,0.25);
+      box-shadow: 0 0 16px rgba(196,30,30,0.2);
+    }
+    .modal-btn.danger {
+      border-color: var(--accent-red); color: var(--accent-red-glow);
+      background: rgba(196,30,30,0.1);
+    }
+    .modal-btn.danger:hover {
+      background: rgba(196,30,30,0.3);
+      box-shadow: 0 0 16px rgba(196,30,30,0.3);
+    }
+
+    /* ── TOAST ── */
+    #toast-container {
+      position: fixed; top: 70px; right: 24px; z-index: 2000;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      padding: 12px 20px; border-radius: 8px; min-width: 260px;
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      animation: slideIn 0.3s ease, fadeOut 0.4s ease 2.6s forwards;
+      border: 1px solid;
+    }
+    .toast.success {
+      background: rgba(46,204,64,0.1); border-color: rgba(46,204,64,0.3);
+      color: var(--accent-green);
+    }
+    .toast.error {
+      background: rgba(196,30,30,0.1); border-color: rgba(196,30,30,0.3);
+      color: var(--accent-red-glow);
+    }
+    @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
+
+    /* ── CHECKBOX TOGGLE ── */
+    .toggle {
+      position: relative; width: 36px; height: 20px; cursor: pointer;
+    }
+    .toggle input { display: none; }
+    .toggle .slider {
+      position: absolute; inset: 0; background: var(--steel-light);
+      border-radius: 10px; transition: 0.2s;
+    }
+    .toggle .slider::before {
+      content: ''; position: absolute; width: 16px; height: 16px;
+      left: 2px; bottom: 2px; background: var(--text-primary);
+      border-radius: 50%; transition: 0.2s;
+    }
+    .toggle input:checked + .slider { background: var(--accent-red); }
+    .toggle input:checked + .slider::before { transform: translateX(16px); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      #top-nav { padding: 0 12px; height: 50px; }
+      .nav-logo { font-size: 20px; }
+      .nav-logo .admin-badge { font-size: 9px; }
+      #admin-name { display: none; }
+      #main-content { padding: 16px 12px 32px; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .stat-card .stat-value { font-size: 28px; }
+      .tabs-bar { gap: 0; }
+      .tab-btn { padding: 8px 12px; font-size: 14px; letter-spacing: 1px; }
+      .obj-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+      .lb-grid { grid-template-columns: 1fr; }
+      .data-table-wrap { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="title">PRESS<span>IT!</span></div>
+    <div class="subtitle">Admin-Panel wird geladen</div>
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Access Denied -->
+  <div id="access-denied">
+    <div class="lock-icon">&#128274;</div>
+    <h1>KEIN ZUGRIFF</h1>
+    <p>Du bist nicht als Administrator angemeldet oder hast keine Berechtigung, auf dieses Panel zuzugreifen.</p>
+    <a href="/">Zurueck zum Spiel</a>
+  </div>
+
+  <!-- Top Navigation -->
+  <nav id="top-nav" style="display:none;">
+    <div class="nav-left">
+      <div class="hazard-bar"></div>
+      <div class="nav-logo">
+        PRESS<span class="press">IT!</span>
+        <span class="admin-badge">ADMIN</span>
+      </div>
+      <div class="hazard-bar"></div>
+    </div>
+    <div class="nav-right">
+      <span id="admin-name"></span>
+      <a href="/" class="nav-btn">Zum Spiel</a>
+      <button class="nav-btn danger" id="logout-btn">Abmelden</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div id="main-content">
+    <!-- Stats Cards -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-label">Spieler gesamt</span>
+        <span class="stat-value red" id="stat-users">--</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Muenzen gesamt</span>
+        <span class="stat-value yellow" id="stat-coins">--</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Gesamt gepresst</span>
+        <span class="stat-value orange" id="stat-crushed">--</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Durchschnitt Muenzen</span>
+        <span class="stat-value green" id="stat-avg">--</span>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-bar">
+      <button class="tab-btn active" data-tab="players">Spieler</button>
+      <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+      <button class="tab-btn" data-tab="objects">Objekte</button>
+      <button class="tab-btn" data-tab="settings">Einstellungen</button>
+    </div>
+
+    <!-- Players Tab -->
+    <div class="tab-panel active" id="tab-players">
+      <div class="search-bar">
+        <input type="text" class="search-input" id="player-search" placeholder="Spieler suchen (Name oder E-Mail)...">
+      </div>
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>E-Mail</th>
+              <th>Muenzen</th>
+              <th>Gepresst</th>
+              <th>Freigeschaltet</th>
+              <th>Admin</th>
+              <th>Registriert</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody id="players-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="players-pagination"></div>
+    </div>
+
+    <!-- Leaderboard Tab -->
+    <div class="tab-panel" id="tab-leaderboard">
+      <div class="lb-section">
+        <div class="lb-title">Top Crusher</div>
+        <div class="lb-grid" id="lb-crushers"></div>
+      </div>
+      <div class="lb-section">
+        <div class="lb-title">Reichste Spieler</div>
+        <div class="lb-grid" id="lb-richest"></div>
+      </div>
+    </div>
+
+    <!-- Objects Tab -->
+    <div class="tab-panel" id="tab-objects">
+      <div class="obj-filter-row" id="obj-filters"></div>
+      <div class="obj-grid" id="obj-grid"></div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="tab-panel" id="tab-settings">
+      <div class="settings-section">
+        <h3>Systeminformationen</h3>
+        <div class="setting-row">
+          <span class="setting-label">Projekt-URL</span>
+          <span class="setting-value" id="setting-url"></span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Spieler insgesamt</span>
+          <span class="setting-value" id="setting-total-users">--</span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Admin-E-Mail</span>
+          <span class="setting-value" id="setting-admin-email">--</span>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>Admin-Verwaltung</h3>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
+          Admin-Status kann direkt in der Spieler-Tabelle ueber das Schild-Symbol umgeschaltet werden.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Player Modal -->
+  <div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+      <h2>Spieler bearbeiten</h2>
+      <div class="modal-sub" id="edit-modal-sub"></div>
+      <div class="hazard-line"></div>
+      <div class="form-group">
+        <label>Anzeigename</label>
+        <input type="text" id="edit-name">
+      </div>
+      <div class="form-group">
+        <label>Muenzen</label>
+        <input type="number" id="edit-coins" min="0">
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:12px;">
+        <label style="margin-bottom:0;">Admin-Status</label>
+        <label class="toggle">
+          <input type="checkbox" id="edit-admin">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <input type="hidden" id="edit-user-id">
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="closeModal('edit-modal')">Abbrechen</button>
+        <button class="modal-btn primary" id="edit-save-btn">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal">
+      <h2>Spieler loeschen</h2>
+      <div class="modal-sub" id="delete-modal-sub"></div>
+      <div class="hazard-line"></div>
+      <p style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent-red-glow);margin-bottom:8px;">
+        Diese Aktion kann nicht rueckgaengig gemacht werden!
+      </p>
+      <p style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-secondary);">
+        Das Profil und alle zugehoerigen Daten werden dauerhaft entfernt.
+      </p>
+      <input type="hidden" id="delete-user-id">
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="closeModal('delete-modal')">Abbrechen</button>
+        <button class="modal-btn danger" id="delete-confirm-btn">Endgueltig loeschen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Modal -->
+  <div class="modal-overlay" id="reset-modal">
+    <div class="modal">
+      <h2>Fortschritt zuruecksetzen</h2>
+      <div class="modal-sub" id="reset-modal-sub"></div>
+      <div class="hazard-line"></div>
+      <p style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent-orange);margin-bottom:8px;">
+        Muenzen, freigeschaltete Objekte und Pressungen werden auf 0 gesetzt.
+      </p>
+      <input type="hidden" id="reset-user-id">
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="closeModal('reset-modal')">Abbrechen</button>
+        <button class="modal-btn danger" id="reset-confirm-btn">Zuruecksetzen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    // ═══════════════════════════════════════════════════
+    // SUPABASE INIT
+    // ═══════════════════════════════════════════════════
+    const SUPABASE_URL = 'https://nyrzmcjjgmtdvvdtfdld.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55cnptY2pqZ210ZHZ2ZHRmZGxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MDk3MjIsImV4cCI6MjA4NjM4NTcyMn0.yZzbyuuSPXo08kj9YceRLq2vPVX_oiC1rakpZeb_T_c';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ═══════════════════════════════════════════════════
+    // OBJECT REGISTRY (for Objects tab)
+    // ═══════════════════════════════════════════════════
+    const CATEGORIES = [
+      { id: 'all', name: 'Alle', icon: '\u{1F4E6}' },
+      { id: 'fruit', name: 'Obst', icon: '\u{1F34E}' },
+      { id: 'metal_can', name: 'Metall', icon: '\u{1F96B}' },
+      { id: 'glass', name: 'Glas', icon: '\u{1F377}' },
+      { id: 'wood', name: 'Holz', icon: '\u{1FAB5}' },
+      { id: 'plastic', name: 'Plastik', icon: '\u{1F9F4}' },
+      { id: 'electronics', name: 'Elektronik', icon: '\u{1F4F1}' },
+      { id: 'food', name: 'Essen', icon: '\u{1F370}' },
+      { id: 'rubber', name: 'Gummi', icon: '\u{1F986}' },
+      { id: 'stone', name: 'Stein', icon: '\u{1FAA8}' },
+      { id: 'toy', name: 'Spielzeug', icon: '\u{1F9F8}' },
+      { id: 'paper', name: 'Papier', icon: '\u{1F4DA}' },
+      { id: 'wax', name: 'Wachs', icon: '\u{1F56F}\uFE0F' },
+    ];
+
+    const OBJECTS = [
+      { id:'watermelon', name:'Wassermelone', icon:'\u{1F349}', cat:'fruit', price:0, reward:5, crush:'splat' },
+      { id:'apple', name:'Apfel', icon:'\u{1F34E}', cat:'fruit', price:20, reward:5, crush:'splat' },
+      { id:'orange', name:'Orange', icon:'\u{1F34A}', cat:'fruit', price:25, reward:5, crush:'splat' },
+      { id:'lemon', name:'Zitrone', icon:'\u{1F34B}', cat:'fruit', price:30, reward:6, crush:'splat' },
+      { id:'banana', name:'Banane', icon:'\u{1F34C}', cat:'fruit', price:35, reward:7, crush:'splat' },
+      { id:'cherry', name:'Kirsche', icon:'\u{1F352}', cat:'fruit', price:40, reward:8, crush:'splat' },
+      { id:'strawberry', name:'Erdbeere', icon:'\u{1F353}', cat:'fruit', price:45, reward:9, crush:'splat' },
+      { id:'pear', name:'Birne', icon:'\u{1F350}', cat:'fruit', price:50, reward:10, crush:'splat' },
+      { id:'peach', name:'Pfirsich', icon:'\u{1F351}', cat:'fruit', price:55, reward:11, crush:'splat' },
+      { id:'grape', name:'Traube', icon:'\u{1F347}', cat:'fruit', price:60, reward:12, crush:'splat' },
+      { id:'kiwi', name:'Kiwi', icon:'\u{1F95D}', cat:'fruit', price:65, reward:13, crush:'splat' },
+      { id:'mango', name:'Mango', icon:'\u{1F96D}', cat:'fruit', price:70, reward:14, crush:'splat' },
+      { id:'pineapple', name:'Ananas', icon:'\u{1F34D}', cat:'fruit', price:80, reward:16, crush:'splat' },
+      { id:'pomegranate', name:'Granatapfel', icon:'\u{1FAD0}', cat:'fruit', price:90, reward:18, crush:'splat' },
+      { id:'coconut', name:'Kokosnuss', icon:'\u{1F965}', cat:'fruit', price:100, reward:20, crush:'splat' },
+      { id:'pumpkin', name:'Kuerbis', icon:'\u{1F383}', cat:'fruit', price:120, reward:24, crush:'splat' },
+      { id:'plum', name:'Pflaume', icon:'\u{1FAD0}', cat:'fruit', price:35, reward:7, crush:'splat' },
+      { id:'tin_can', name:'Blechdose', icon:'\u{1F96B}', cat:'metal_can', price:40, reward:8, crush:'crumple' },
+      { id:'beer_can', name:'Bierdose', icon:'\u{1F37A}', cat:'metal_can', price:50, reward:10, crush:'crumple' },
+      { id:'soda_can', name:'Limodose', icon:'\u{1F964}', cat:'metal_can', price:55, reward:11, crush:'crumple' },
+      { id:'coffee_can', name:'Kaffeedose', icon:'\u2615', cat:'metal_can', price:55, reward:11, crush:'crumple' },
+      { id:'energy_drink', name:'Energydrink', icon:'\u26A1', cat:'metal_can', price:60, reward:12, crush:'crumple' },
+      { id:'tea_tin', name:'Teedose', icon:'\u{1F375}', cat:'metal_can', price:60, reward:12, crush:'crumple' },
+      { id:'cookie_tin', name:'Keksdose', icon:'\u{1F36A}', cat:'metal_can', price:65, reward:13, crush:'crumple' },
+      { id:'paint_can', name:'Farbdose', icon:'\u{1F3A8}', cat:'metal_can', price:70, reward:14, crush:'crumple' },
+      { id:'spray_can', name:'Spruuhdose', icon:'\u{1F9F4}', cat:'metal_can', price:75, reward:15, crush:'crumple' },
+      { id:'oil_can', name:'Oeldose', icon:'\u{1F6E2}\uFE0F', cat:'metal_can', price:85, reward:17, crush:'crumple' },
+      { id:'bucket_metal', name:'Metalleimer', icon:'\u{1FAA3}', cat:'metal_can', price:100, reward:20, crush:'crumple' },
+      { id:'milk_can', name:'Milchkanne', icon:'\u{1F95B}', cat:'metal_can', price:120, reward:24, crush:'crumple' },
+      { id:'watering_can', name:'Giesskanne', icon:'\u{1F6BF}', cat:'metal_can', price:130, reward:26, crush:'crumple' },
+      { id:'trash_can', name:'Muelltonne', icon:'\u{1F5D1}\uFE0F', cat:'metal_can', price:150, reward:30, crush:'crumple' },
+      { id:'gas_can', name:'Benzinkanister', icon:'\u26FD', cat:'metal_can', price:160, reward:32, crush:'crumple' },
+      { id:'toolbox', name:'Werkzeugkasten', icon:'\u{1F9F0}', cat:'metal_can', price:180, reward:36, crush:'crumple' },
+      { id:'ammo_box', name:'Munitionskiste', icon:'\u{1F4E6}', cat:'metal_can', price:200, reward:40, crush:'crumple' },
+      { id:'wine_glass', name:'Weinglas', icon:'\u{1F377}', cat:'glass', price:45, reward:9, crush:'shatter' },
+      { id:'beer_glass', name:'Bierglas', icon:'\u{1F37A}', cat:'glass', price:50, reward:10, crush:'shatter' },
+      { id:'jar', name:'Einmachglas', icon:'\u{1FAD9}', cat:'glass', price:55, reward:11, crush:'shatter' },
+      { id:'vase', name:'Vase', icon:'\u{1F3FA}', cat:'glass', price:60, reward:12, crush:'shatter' },
+      { id:'lightbulb', name:'Gluehbirne', icon:'\u{1F4A1}', cat:'glass', price:65, reward:13, crush:'shatter' },
+      { id:'bottle', name:'Flasche', icon:'\u{1F37E}', cat:'glass', price:70, reward:14, crush:'shatter' },
+      { id:'perfume', name:'Parfuem', icon:'\u{1F9F4}', cat:'glass', price:80, reward:16, crush:'shatter' },
+      { id:'snow_globe', name:'Schneekugel', icon:'\u{1F52E}', cat:'glass', price:90, reward:18, crush:'shatter' },
+      { id:'fishbowl', name:'Goldfischglas', icon:'\u{1F420}', cat:'glass', price:100, reward:20, crush:'shatter' },
+      { id:'crystal_ball', name:'Kristallkugel', icon:'\u{1F52E}', cat:'glass', price:120, reward:24, crush:'shatter' },
+      { id:'hourglass', name:'Sanduhr', icon:'\u231B', cat:'glass', price:140, reward:28, crush:'shatter' },
+      { id:'mirror', name:'Spiegel', icon:'\u{1FA9E}', cat:'glass', price:160, reward:32, crush:'shatter' },
+      { id:'chandelier', name:'Kronleuchter', icon:'\u{1F52E}', cat:'glass', price:200, reward:40, crush:'shatter' },
+      { id:'window_pane', name:'Fensterscheibe', icon:'\u{1FA9F}', cat:'glass', price:100, reward:20, crush:'shatter' },
+      { id:'stained_glass', name:'Buntglas', icon:'\u{1F3A8}', cat:'glass', price:180, reward:36, crush:'shatter' },
+      { id:'test_tube', name:'Reagenzglas', icon:'\u{1F9EA}', cat:'glass', price:70, reward:14, crush:'shatter' },
+      { id:'flask', name:'Kolben', icon:'\u{1F9EB}', cat:'glass', price:80, reward:16, crush:'shatter' },
+      { id:'log', name:'Holzscheit', icon:'\u{1FAB5}', cat:'wood', price:50, reward:10, crush:'splinter' },
+      { id:'crate', name:'Holzkiste', icon:'\u{1F4E6}', cat:'wood', price:60, reward:12, crush:'splinter' },
+      { id:'pencil', name:'Bleistift', icon:'\u270F\uFE0F', cat:'wood', price:30, reward:6, crush:'splinter' },
+      { id:'chopsticks', name:'Staebchen', icon:'\u{1F962}', cat:'wood', price:35, reward:7, crush:'splinter' },
+      { id:'guitar', name:'Gitarre', icon:'\u{1F3B8}', cat:'wood', price:150, reward:30, crush:'splinter' },
+      { id:'baseball_bat', name:'Baseballschlaeger', icon:'\u{1F3CF}', cat:'wood', price:100, reward:20, crush:'splinter' },
+      { id:'chair', name:'Stuhl', icon:'\u{1FA91}', cat:'wood', price:120, reward:24, crush:'splinter' },
+      { id:'cutting_board', name:'Schneidebrett', icon:'\u{1F6CB}\uFE0F', cat:'wood', price:70, reward:14, crush:'splinter' },
+      { id:'rolling_pin', name:'Nudelholz', icon:'\u{1F4CF}', cat:'wood', price:55, reward:11, crush:'splinter' },
+      { id:'birdhouse', name:'Vogelhaus', icon:'\u{1F3E0}', cat:'wood', price:90, reward:18, crush:'splinter' },
+      { id:'barrel', name:'Fass', icon:'\u{1F6E2}\uFE0F', cat:'wood', price:130, reward:26, crush:'splinter' },
+      { id:'chess_piece', name:'Schachfigur', icon:'\u265A', cat:'wood', price:80, reward:16, crush:'splinter' },
+      { id:'wooden_shoe', name:'Holzschuh', icon:'\u{1F97F}', cat:'wood', price:85, reward:17, crush:'splinter' },
+      { id:'totem', name:'Totempfahl', icon:'\u{1F5FF}', cat:'wood', price:200, reward:40, crush:'splinter' },
+      { id:'abacus', name:'Abakus', icon:'\u{1F9EE}', cat:'wood', price:110, reward:22, crush:'splinter' },
+      { id:'plastic_bottle', name:'Plastikflasche', icon:'\u{1F9F4}', cat:'plastic', price:30, reward:6, crush:'crumple' },
+      { id:'toy_duck', name:'Badeente', icon:'\u{1F986}', cat:'plastic', price:40, reward:8, crush:'crumple' },
+      { id:'bucket_plastic', name:'Plastikeimer', icon:'\u{1FAA3}', cat:'plastic', price:50, reward:10, crush:'crumple' },
+      { id:'traffic_cone', name:'Verkehrskegel', icon:'\u{1F9CA}', cat:'plastic', price:60, reward:12, crush:'crumple' },
+      { id:'cd_case', name:'CD-Huelle', icon:'\u{1F4BF}', cat:'plastic', price:35, reward:7, crush:'crumple' },
+      { id:'lego_brick', name:'Legostein', icon:'\u{1F9F1}', cat:'plastic', price:45, reward:9, crush:'crumple' },
+      { id:'water_gun', name:'Wasserpistole', icon:'\u{1F52B}', cat:'plastic', price:70, reward:14, crush:'crumple' },
+      { id:'frisbee', name:'Frisbee', icon:'\u{1F94F}', cat:'plastic', price:55, reward:11, crush:'crumple' },
+      { id:'action_figure', name:'Actionfigur', icon:'\u{1F9B8}', cat:'plastic', price:80, reward:16, crush:'crumple' },
+      { id:'phone_case', name:'Handyhuelle', icon:'\u{1F4F1}', cat:'plastic', price:40, reward:8, crush:'crumple' },
+      { id:'sunglasses', name:'Sonnenbrille', icon:'\u{1F576}\uFE0F', cat:'plastic', price:65, reward:13, crush:'crumple' },
+      { id:'helmet', name:'Helm', icon:'\u26D1\uFE0F', cat:'plastic', price:100, reward:20, crush:'crumple' },
+      { id:'plastic_chair', name:'Plastikstuhl', icon:'\u{1FA91}', cat:'plastic', price:90, reward:18, crush:'crumple' },
+      { id:'tupperware', name:'Tupperware', icon:'\u{1F372}', cat:'plastic', price:50, reward:10, crush:'crumple' },
+      { id:'smartphone', name:'Smartphone', icon:'\u{1F4F1}', cat:'electronics', price:100, reward:20, crush:'shatter' },
+      { id:'laptop', name:'Laptop', icon:'\u{1F4BB}', cat:'electronics', price:200, reward:40, crush:'shatter' },
+      { id:'keyboard', name:'Tastatur', icon:'\u2328\uFE0F', cat:'electronics', price:80, reward:16, crush:'crumple' },
+      { id:'mouse', name:'Maus', icon:'\u{1F5B1}\uFE0F', cat:'electronics', price:50, reward:10, crush:'crumple' },
+      { id:'headphones', name:'Kopfhoerer', icon:'\u{1F3A7}', cat:'electronics', price:90, reward:18, crush:'crumple' },
+      { id:'game_controller', name:'Controller', icon:'\u{1F3AE}', cat:'electronics', price:70, reward:14, crush:'crumple' },
+      { id:'calculator', name:'Taschenrechner', icon:'\u{1F5A9}', cat:'electronics', price:60, reward:12, crush:'crumple' },
+      { id:'alarm_clock', name:'Wecker', icon:'\u23F0', cat:'electronics', price:65, reward:13, crush:'shatter' },
+      { id:'camera', name:'Kamera', icon:'\u{1F4F7}', cat:'electronics', price:120, reward:24, crush:'shatter' },
+      { id:'radio', name:'Radio', icon:'\u{1F4FB}', cat:'electronics', price:85, reward:17, crush:'crumple' },
+      { id:'tv', name:'Fernseher', icon:'\u{1F4FA}', cat:'electronics', price:180, reward:36, crush:'shatter' },
+      { id:'speaker', name:'Lautsprecher', icon:'\u{1F50A}', cat:'electronics', price:75, reward:15, crush:'crumple' },
+      { id:'tablet', name:'Tablet', icon:'\u{1F4F2}', cat:'electronics', price:150, reward:30, crush:'shatter' },
+      { id:'usb_drive', name:'USB-Stick', icon:'\u{1F4BE}', cat:'electronics', price:35, reward:7, crush:'crumple' },
+      { id:'battery', name:'Batterie', icon:'\u{1F50B}', cat:'electronics', price:40, reward:8, crush:'crumple' },
+      { id:'cake', name:'Torte', icon:'\u{1F382}', cat:'food', price:60, reward:12, crush:'splat' },
+      { id:'hamburger', name:'Hamburger', icon:'\u{1F354}', cat:'food', price:50, reward:10, crush:'splat' },
+      { id:'pizza', name:'Pizza', icon:'\u{1F355}', cat:'food', price:55, reward:11, crush:'splat' },
+      { id:'donut', name:'Donut', icon:'\u{1F369}', cat:'food', price:40, reward:8, crush:'splat' },
+      { id:'chocolate', name:'Schokolade', icon:'\u{1F36B}', cat:'food', price:45, reward:9, crush:'splat' },
+      { id:'cheese', name:'Kaese', icon:'\u{1F9C0}', cat:'food', price:55, reward:11, crush:'splat' },
+      { id:'egg', name:'Ei', icon:'\u{1F95A}', cat:'food', price:30, reward:6, crush:'splat' },
+      { id:'bread', name:'Brot', icon:'\u{1F35E}', cat:'food', price:35, reward:7, crush:'splat' },
+      { id:'cupcake', name:'Cupcake', icon:'\u{1F9C1}', cat:'food', price:45, reward:9, crush:'splat' },
+      { id:'candy', name:'Bonbon', icon:'\u{1F36C}', cat:'food', price:25, reward:5, crush:'splat' },
+      { id:'ice_cream', name:'Eiscreme', icon:'\u{1F366}', cat:'food', price:50, reward:10, crush:'splat' },
+      { id:'sushi', name:'Sushi', icon:'\u{1F363}', cat:'food', price:65, reward:13, crush:'splat' },
+      { id:'taco', name:'Taco', icon:'\u{1F32E}', cat:'food', price:60, reward:12, crush:'splat' },
+      { id:'pretzel', name:'Brezel', icon:'\u{1F968}', cat:'food', price:40, reward:8, crush:'splat' },
+      { id:'rubber_duck', name:'Quietscheente', icon:'\u{1F986}', cat:'rubber', price:35, reward:7, crush:'flatten' },
+      { id:'ball', name:'Gummiball', icon:'\u{1F3BE}', cat:'rubber', price:30, reward:6, crush:'flatten' },
+      { id:'tire', name:'Reifen', icon:'\u{1F6DE}', cat:'rubber', price:100, reward:20, crush:'flatten' },
+      { id:'eraser', name:'Radiergummi', icon:'\u{1F9F9}', cat:'rubber', price:20, reward:4, crush:'flatten' },
+      { id:'balloon', name:'Ballon', icon:'\u{1F388}', cat:'rubber', price:25, reward:5, crush:'flatten' },
+      { id:'rubber_band', name:'Gummiband', icon:'\u{1F300}', cat:'rubber', price:15, reward:3, crush:'flatten' },
+      { id:'yoga_mat', name:'Yogamatte', icon:'\u{1F9D8}', cat:'rubber', price:70, reward:14, crush:'flatten' },
+      { id:'flip_flop', name:'Badelatschen', icon:'\u{1FA74}', cat:'rubber', price:40, reward:8, crush:'flatten' },
+      { id:'garden_hose', name:'Gartenschlauch', icon:'\u{1FAA2}', cat:'rubber', price:80, reward:16, crush:'flatten' },
+      { id:'rubber_glove', name:'Gummihandschuh', icon:'\u{1F9E4}', cat:'rubber', price:30, reward:6, crush:'flatten' },
+      { id:'stress_ball', name:'Stressball', icon:'\u{1F534}', cat:'rubber', price:25, reward:5, crush:'flatten' },
+      { id:'rock', name:'Stein', icon:'\u{1FAA8}', cat:'stone', price:50, reward:10, crush:'shatter' },
+      { id:'brick', name:'Ziegelstein', icon:'\u{1F9F1}', cat:'stone', price:60, reward:12, crush:'shatter' },
+      { id:'marble', name:'Murmel', icon:'\u{1F311}', cat:'stone', price:40, reward:8, crush:'shatter' },
+      { id:'gemstone', name:'Edelstein', icon:'\u{1F48E}', cat:'stone', price:150, reward:30, crush:'shatter' },
+      { id:'concrete_block', name:'Betonblock', icon:'\u2B1B', cat:'stone', price:120, reward:24, crush:'shatter' },
+      { id:'statue', name:'Statue', icon:'\u{1F5FF}', cat:'stone', price:180, reward:36, crush:'shatter' },
+      { id:'fossil', name:'Fossil', icon:'\u{1F9B4}', cat:'stone', price:200, reward:40, crush:'shatter' },
+      { id:'geode', name:'Geode', icon:'\u{1F48E}', cat:'stone', price:160, reward:32, crush:'shatter' },
+      { id:'stepping_stone', name:'Trittstein', icon:'\u{1FAAA}', cat:'stone', price:70, reward:14, crush:'shatter' },
+      { id:'gravel', name:'Kies', icon:'\u{1FAA8}', cat:'stone', price:30, reward:6, crush:'shatter' },
+      { id:'slate', name:'Schieferplatte', icon:'\u{1F4CB}', cat:'stone', price:80, reward:16, crush:'shatter' },
+      { id:'teddy_bear', name:'Teddybaer', icon:'\u{1F9F8}', cat:'toy', price:60, reward:12, crush:'flatten' },
+      { id:'toy_car', name:'Spielzeugauto', icon:'\u{1F697}', cat:'toy', price:50, reward:10, crush:'crumple' },
+      { id:'doll', name:'Puppe', icon:'\u{1F9CF}', cat:'toy', price:55, reward:11, crush:'flatten' },
+      { id:'toy_robot', name:'Spielzeugroboter', icon:'\u{1F916}', cat:'toy', price:80, reward:16, crush:'crumple' },
+      { id:'toy_train', name:'Spielzeugeisenbahn', icon:'\u{1F686}', cat:'toy', price:90, reward:18, crush:'crumple' },
+      { id:'toy_plane', name:'Spielzeugflugzeug', icon:'\u2708\uFE0F', cat:'toy', price:70, reward:14, crush:'crumple' },
+      { id:'building_blocks', name:'Bausteine', icon:'\u{1F9F1}', cat:'toy', price:45, reward:9, crush:'shatter' },
+      { id:'yo_yo', name:'Jo-Jo', icon:'\u{1FA80}', cat:'toy', price:35, reward:7, crush:'crumple' },
+      { id:'spinning_top', name:'Kreisel', icon:'\u{1FA80}', cat:'toy', price:40, reward:8, crush:'crumple' },
+      { id:'toy_soldier', name:'Spielzeugsoldat', icon:'\u{1F482}', cat:'toy', price:55, reward:11, crush:'crumple' },
+      { id:'marionette', name:'Marionette', icon:'\u{1F3AD}', cat:'toy', price:100, reward:20, crush:'splinter' },
+      { id:'music_box', name:'Spieluhr', icon:'\u{1F3B6}', cat:'toy', price:120, reward:24, crush:'crumple' },
+      { id:'snow_man_toy', name:'Schneemann', icon:'\u26C4', cat:'toy', price:65, reward:13, crush:'crumple' },
+      { id:'rubiks_cube', name:'Zauberwuerfel', icon:'\u{1F9E9}', cat:'toy', price:75, reward:15, crush:'crumple' },
+      { id:'book', name:'Buch', icon:'\u{1F4D6}', cat:'paper', price:40, reward:8, crush:'flatten' },
+      { id:'newspaper', name:'Zeitung', icon:'\u{1F4F0}', cat:'paper', price:20, reward:4, crush:'flatten' },
+      { id:'cardboard_box', name:'Karton', icon:'\u{1F4E6}', cat:'paper', price:30, reward:6, crush:'flatten' },
+      { id:'envelope', name:'Briefumschlag', icon:'\u2709\uFE0F', cat:'paper', price:15, reward:3, crush:'flatten' },
+      { id:'origami', name:'Origami', icon:'\u{1F9A2}', cat:'paper', price:35, reward:7, crush:'flatten' },
+      { id:'paper_bag', name:'Papiertuete', icon:'\u{1F6CD}\uFE0F', cat:'paper', price:25, reward:5, crush:'flatten' },
+      { id:'notebook', name:'Notizbuch', icon:'\u{1F4D3}', cat:'paper', price:35, reward:7, crush:'flatten' },
+      { id:'scroll', name:'Schriftrolle', icon:'\u{1F4DC}', cat:'paper', price:50, reward:10, crush:'flatten' },
+      { id:'magazine', name:'Zeitschrift', icon:'\u{1F4DA}', cat:'paper', price:30, reward:6, crush:'flatten' },
+      { id:'paper_plane', name:'Papierflieger', icon:'\u2708\uFE0F', cat:'paper', price:20, reward:4, crush:'flatten' },
+      { id:'postcard', name:'Postkarte', icon:'\u{1F4E7}', cat:'paper', price:15, reward:3, crush:'flatten' },
+      { id:'candle', name:'Kerze', icon:'\u{1F56F}\uFE0F', cat:'wax', price:35, reward:7, crush:'splat' },
+      { id:'crayon', name:'Wachsmalstift', icon:'\u{1F58D}\uFE0F', cat:'wax', price:25, reward:5, crush:'splat' },
+      { id:'candle_jar', name:'Duftkerze', icon:'\u{1F56F}\uFE0F', cat:'wax', price:50, reward:10, crush:'splat' },
+      { id:'wax_figure', name:'Wachsfigur', icon:'\u{1F9D1}', cat:'wax', price:100, reward:20, crush:'splat' },
+      { id:'lipstick', name:'Lippenstift', icon:'\u{1F484}', cat:'wax', price:45, reward:9, crush:'splat' },
+      { id:'cheese_wax', name:'Wachskaese', icon:'\u{1F9C0}', cat:'wax', price:60, reward:12, crush:'splat' },
+      { id:'seal_stamp', name:'Siegelstempel', icon:'\u{1F4AE}', cat:'wax', price:70, reward:14, crush:'splat' },
+      { id:'wax_tablet', name:'Wachstafel', icon:'\u{1F4CB}', cat:'wax', price:80, reward:16, crush:'splat' },
+    ];
+
+    // ═══════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════
+    let currentUser = null;
+    let allPlayers = [];
+    let filteredPlayers = [];
+    let currentPage = 1;
+    const PAGE_SIZE = 20;
+    let dashboardStats = null;
+    let selectedObjCat = 'all';
+
+    // ═══════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════
+    async function init() {
+      const { data: { session } } = await sb.auth.getSession();
+
+      if (!session) {
+        showAccessDenied();
+        return;
+      }
+
+      currentUser = session.user;
+
+      // Check admin status
+      const { data: profile, error } = await sb.from('profiles')
+        .select('is_admin, display_name')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (error || !profile || !profile.is_admin) {
+        showAccessDenied();
+        return;
+      }
+
+      // User is admin — show dashboard
+      document.getElementById('admin-name').textContent = profile.display_name || currentUser.email;
+      document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('top-nav').style.display = 'flex';
+      document.getElementById('main-content').classList.add('show');
+
+      // Load data
+      await Promise.all([loadStats(), loadPlayers()]);
+      renderObjectsTab();
+      setupEventListeners();
+    }
+
+    function showAccessDenied() {
+      document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('access-denied').classList.add('show');
+    }
+
+    // ═══════════════════════════════════════════════════
+    // STATS
+    // ═══════════════════════════════════════════════════
+    async function loadStats() {
+      try {
+        const { data, error } = await sb.rpc('get_admin_stats');
+        if (error) throw error;
+        dashboardStats = data;
+
+        document.getElementById('stat-users').textContent = fmt(data.total_users || 0);
+        document.getElementById('stat-coins').textContent = fmt(data.total_coins || 0);
+        document.getElementById('stat-crushed').textContent = fmt(data.total_crushed || 0);
+        document.getElementById('stat-avg').textContent = fmt(Math.round(data.avg_coins || 0));
+        document.getElementById('setting-total-users').textContent = fmt(data.total_users || 0);
+        document.getElementById('setting-url').textContent = SUPABASE_URL;
+        document.getElementById('setting-admin-email').textContent = currentUser.email;
+
+        // Leaderboard
+        renderLeaderboard(data.top_crushers || [], data.richest_players || []);
+      } catch (e) {
+        console.error('Stats error:', e);
+        toast('Statistiken konnten nicht geladen werden', 'error');
+      }
+    }
+
+    function fmt(n) {
+      return Number(n).toLocaleString('de-DE');
+    }
+
+    // ═══════════════════════════════════════════════════
+    // PLAYERS
+    // ═══════════════════════════════════════════════════
+    async function loadPlayers() {
+      try {
+        const { data, error } = await sb.from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        allPlayers = data || [];
+        filteredPlayers = allPlayers;
+        currentPage = 1;
+        renderPlayers();
+      } catch (e) {
+        console.error('Players error:', e);
+        toast('Spieler konnten nicht geladen werden', 'error');
+      }
+    }
+
+    function renderPlayers() {
+      const tbody = document.getElementById('players-tbody');
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const page = filteredPlayers.slice(start, start + PAGE_SIZE);
+
+      tbody.innerHTML = page.map(p => {
+        const unlocked = Array.isArray(p.unlocked) ? p.unlocked.length : 0;
+        const date = p.created_at ? new Date(p.created_at).toLocaleDateString('de-DE') : '--';
+        const adminCls = p.is_admin ? 'yes' : 'no';
+        const adminTxt = p.is_admin ? 'ADMIN' : 'NEIN';
+        return `<tr>
+          <td>${esc(p.display_name || '--')}</td>
+          <td class="email">${esc(p.id.substring(0, 8))}...</td>
+          <td class="coins">${fmt(p.coins || 0)}</td>
+          <td class="crushed">${fmt(p.total_crushed || 0)}</td>
+          <td>${unlocked}</td>
+          <td><span class="admin-badge-sm ${adminCls}">${adminTxt}</span></td>
+          <td>${date}</td>
+          <td>
+            <div class="action-btns">
+              <button class="act-btn" title="Bearbeiten" onclick="openEditModal('${p.id}')">&#9998;</button>
+              <button class="act-btn warn" title="Admin umschalten" onclick="toggleAdmin('${p.id}', ${!p.is_admin})">&#x1F6E1;</button>
+              <button class="act-btn warn" title="Fortschritt zuruecksetzen" onclick="openResetModal('${p.id}')">&#8634;</button>
+              <button class="act-btn danger" title="Loeschen" onclick="openDeleteModal('${p.id}')">&#10006;</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      renderPagination();
+    }
+
+    function renderPagination() {
+      const total = filteredPlayers.length;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      const pag = document.getElementById('players-pagination');
+
+      let html = `<button class="page-btn" onclick="goPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>&larr;</button>`;
+      for (let i = 1; i <= totalPages; i++) {
+        if (totalPages > 7 && Math.abs(i - currentPage) > 2 && i !== 1 && i !== totalPages) {
+          if (i === currentPage - 3 || i === currentPage + 3) html += '<span class="page-info">...</span>';
+          continue;
+        }
+        html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+      }
+      html += `<button class="page-btn" onclick="goPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>&rarr;</button>`;
+      html += `<span class="page-info">${total} Spieler</span>`;
+      pag.innerHTML = html;
+    }
+
+    window.goPage = function(p) {
+      const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / PAGE_SIZE));
+      if (p < 1 || p > totalPages) return;
+      currentPage = p;
+      renderPlayers();
+    };
+
+    function filterPlayers(query) {
+      const q = query.toLowerCase().trim();
+      if (!q) {
+        filteredPlayers = allPlayers;
+      } else {
+        filteredPlayers = allPlayers.filter(p =>
+          (p.display_name || '').toLowerCase().includes(q) ||
+          (p.id || '').toLowerCase().includes(q)
+        );
+      }
+      currentPage = 1;
+      renderPlayers();
+    }
+
+    // ═══════════════════════════════════════════════════
+    // PLAYER ACTIONS
+    // ═══════════════════════════════════════════════════
+    window.openEditModal = function(id) {
+      const p = allPlayers.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('edit-user-id').value = id;
+      document.getElementById('edit-name').value = p.display_name || '';
+      document.getElementById('edit-coins').value = p.coins || 0;
+      document.getElementById('edit-admin').checked = !!p.is_admin;
+      document.getElementById('edit-modal-sub').textContent = p.display_name || p.id.substring(0, 8);
+      document.getElementById('edit-modal').classList.add('open');
+    };
+
+    window.openDeleteModal = function(id) {
+      const p = allPlayers.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('delete-user-id').value = id;
+      document.getElementById('delete-modal-sub').textContent =
+        `${p.display_name || 'Unbekannt'} (${p.id.substring(0, 8)}...)`;
+      document.getElementById('delete-modal').classList.add('open');
+    };
+
+    window.openResetModal = function(id) {
+      const p = allPlayers.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('reset-user-id').value = id;
+      document.getElementById('reset-modal-sub').textContent =
+        `${p.display_name || 'Unbekannt'} (${p.id.substring(0, 8)}...)`;
+      document.getElementById('reset-modal').classList.add('open');
+    };
+
+    window.closeModal = function(id) {
+      document.getElementById(id).classList.remove('open');
+    };
+
+    window.toggleAdmin = async function(id, newVal) {
+      try {
+        const { error } = await sb.from('profiles')
+          .update({ is_admin: newVal })
+          .eq('id', id);
+        if (error) throw error;
+        toast(newVal ? 'Admin-Status aktiviert' : 'Admin-Status entfernt', 'success');
+        await loadPlayers();
+      } catch (e) {
+        toast('Fehler: ' + e.message, 'error');
+      }
+    };
+
+    async function saveEdit() {
+      const id = document.getElementById('edit-user-id').value;
+      const name = document.getElementById('edit-name').value.trim();
+      const coins = parseInt(document.getElementById('edit-coins').value) || 0;
+      const isAdmin = document.getElementById('edit-admin').checked;
+
+      try {
+        const { error } = await sb.from('profiles')
+          .update({ display_name: name, coins: coins, is_admin: isAdmin })
+          .eq('id', id);
+        if (error) throw error;
+        closeModal('edit-modal');
+        toast('Spieler aktualisiert', 'success');
+        await Promise.all([loadPlayers(), loadStats()]);
+      } catch (e) {
+        toast('Fehler: ' + e.message, 'error');
+      }
+    }
+
+    async function confirmDelete() {
+      const id = document.getElementById('delete-user-id').value;
+      try {
+        const { error } = await sb.from('profiles').delete().eq('id', id);
+        if (error) throw error;
+        closeModal('delete-modal');
+        toast('Spieler geloescht', 'success');
+        await Promise.all([loadPlayers(), loadStats()]);
+      } catch (e) {
+        toast('Fehler: ' + e.message, 'error');
+      }
+    }
+
+    async function confirmReset() {
+      const id = document.getElementById('reset-user-id').value;
+      try {
+        const { error } = await sb.from('profiles')
+          .update({
+            coins: 0,
+            total_crushed: 0,
+            unlocked: ['watermelon'],
+            selected_object: 'watermelon',
+            recent_objects: ['watermelon']
+          })
+          .eq('id', id);
+        if (error) throw error;
+        closeModal('reset-modal');
+        toast('Fortschritt zurueckgesetzt', 'success');
+        await Promise.all([loadPlayers(), loadStats()]);
+      } catch (e) {
+        toast('Fehler: ' + e.message, 'error');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    // LEADERBOARD
+    // ═══════════════════════════════════════════════════
+    function renderLeaderboard(crushers, richest) {
+      document.getElementById('lb-crushers').innerHTML = renderLbCards(crushers, 'total_crushed', 'crushes', 'Pressungen');
+      document.getElementById('lb-richest').innerHTML = renderLbCards(richest, 'coins', 'coins', 'Muenzen');
+    }
+
+    function renderLbCards(list, key, cls, label) {
+      if (!list.length) return '<p style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--text-secondary);">Keine Daten vorhanden</p>';
+      return list.map((p, i) => {
+        const rank = i + 1;
+        const rankCls = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : 'normal';
+        return `<div class="lb-card">
+          <div class="lb-rank ${rankCls}">#${rank}</div>
+          <div class="lb-info">
+            <div class="lb-name">${esc(p.display_name || 'Unbekannt')}</div>
+            <div class="lb-stat">${label}</div>
+          </div>
+          <div class="lb-value ${cls}">${fmt(p[key] || 0)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // ═══════════════════════════════════════════════════
+    // OBJECTS TAB
+    // ═══════════════════════════════════════════════════
+    function renderObjectsTab() {
+      // Filter buttons
+      const filterRow = document.getElementById('obj-filters');
+      filterRow.innerHTML = CATEGORIES.map(c =>
+        `<button class="obj-filter-btn ${c.id === selectedObjCat ? 'active' : ''}" onclick="filterObjects('${c.id}')">${c.icon} ${c.name}</button>`
+      ).join('');
+
+      // Object cards
+      renderObjectGrid();
+    }
+
+    function renderObjectGrid() {
+      const grid = document.getElementById('obj-grid');
+      const items = selectedObjCat === 'all' ? OBJECTS : OBJECTS.filter(o => o.cat === selectedObjCat);
+      const catMap = {};
+      CATEGORIES.forEach(c => catMap[c.id] = c.name);
+
+      grid.innerHTML = items.map(o => `<div class="obj-card">
+        <div class="icon">${o.icon}</div>
+        <div class="obj-name">${esc(o.name)}</div>
+        <div class="obj-meta">
+          ${catMap[o.cat] || o.cat}<br>
+          <span class="price">${o.price === 0 ? 'Gratis' : o.price + ' M'}</span> &middot;
+          <span class="reward">+${o.reward} M</span><br>
+          ${o.crush}
+        </div>
+      </div>`).join('');
+    }
+
+    window.filterObjects = function(cat) {
+      selectedObjCat = cat;
+      renderObjectsTab();
+    };
+
+    // ═══════════════════════════════════════════════════
+    // TABS
+    // ═══════════════════════════════════════════════════
+    function setupEventListeners() {
+      // Tabs
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        });
+      });
+
+      // Search
+      let searchTimer;
+      document.getElementById('player-search').addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => filterPlayers(e.target.value), 250);
+      });
+
+      // Logout
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        await sb.auth.signOut();
+        window.location.href = '/';
+      });
+
+      // Modal save/delete/reset
+      document.getElementById('edit-save-btn').addEventListener('click', saveEdit);
+      document.getElementById('delete-confirm-btn').addEventListener('click', confirmDelete);
+      document.getElementById('reset-confirm-btn').addEventListener('click', confirmReset);
+
+      // Close modals on overlay click
+      document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) overlay.classList.remove('open');
+        });
+      });
+
+      // Close modals on Escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════
+    // UTILITIES
+    // ═══════════════════════════════════════════════════
+    function esc(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function toast(msg, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = 'toast ' + type;
+      el.textContent = msg;
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 3200);
+    }
+
+    // ═══════════════════════════════════════════════════
+    // START
+    // ═══════════════════════════════════════════════════
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PressIt! — Anmelden</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --steel-dark: #1a1a1e;
+      --steel-mid: #2d2d33;
+      --steel-light: #4a4a52;
+      --accent-red: #c41e1e;
+      --accent-red-glow: #ff3333;
+      --accent-orange: #e87a1e;
+      --accent-yellow: #f5c542;
+      --accent-green: #2ecc40;
+      --accent-coin: #f5c542;
+      --text-primary: #e8e6e1;
+      --text-secondary: #8a8880;
+      --warning-stripe: repeating-linear-gradient(
+        -45deg, #f5c542, #f5c542 10px, #1a1a1e 10px, #1a1a1e 20px
+      );
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--steel-dark);
+      color: var(--text-primary);
+      font-family: 'Barlow Condensed', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Background hazard texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 40px,
+          rgba(245,197,66,0.015) 40px,
+          rgba(245,197,66,0.015) 42px
+        );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Subtle animated glow */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 600px;
+      height: 600px;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(196,30,30,0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+      animation: pulse 4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+      50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    }
+
+    @keyframes cardEnter {
+      from { opacity: 0; transform: translateY(20px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--steel-light); border-radius: 3px; }
+
+    .auth-card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      margin: 20px;
+      background: rgba(26,26,30,0.95);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 40px 32px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      backdrop-filter: blur(12px);
+      animation: cardEnter 0.5s ease-out;
+    }
+
+    .auth-logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 42px;
+      letter-spacing: 4px;
+      margin-bottom: 4px;
+    }
+    .auth-logo span { color: var(--accent-red); }
+
+    .auth-subtitle {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-secondary);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: -12px;
+    }
+
+    .auth-hazard {
+      width: 100%;
+      height: 4px;
+      background: var(--warning-stripe);
+      border-radius: 2px;
+    }
+
+    .auth-form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .auth-form label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-secondary);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: -6px;
+    }
+
+    .auth-form input {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(45,45,51,0.6);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+    .auth-form input:hover {
+      border-color: rgba(255,255,255,0.18);
+    }
+    .auth-form input:focus {
+      border-color: var(--accent-red);
+      box-shadow: 0 0 12px rgba(196,30,30,0.15);
+      background: rgba(45,45,51,0.8);
+    }
+    .auth-form input::placeholder {
+      color: var(--steel-light);
+      font-size: 12px;
+    }
+
+    .auth-submit {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid var(--accent-red);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(196,30,30,0.2), rgba(196,30,30,0.05));
+      color: var(--accent-red-glow);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 4px;
+    }
+    .auth-submit:hover {
+      background: linear-gradient(180deg, rgba(196,30,30,0.4), rgba(196,30,30,0.15));
+      box-shadow: 0 0 24px rgba(196,30,30,0.3);
+      transform: translateY(-1px);
+    }
+    .auth-submit:active {
+      transform: translateY(1px) scale(0.98);
+      box-shadow: 0 0 12px rgba(196,30,30,0.2);
+    }
+    .auth-submit:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .auth-error {
+      width: 100%;
+      padding: 8px 12px;
+      background: rgba(196,30,30,0.1);
+      border: 1px solid rgba(196,30,30,0.3);
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--accent-red-glow);
+      display: none;
+      text-align: center;
+    }
+    .auth-error.show { display: block; }
+
+    .auth-toggle {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+    .auth-toggle a {
+      color: var(--accent-red-glow);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .auth-toggle a:hover { color: var(--accent-yellow); }
+
+    .auth-divider {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 4px 0;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.06);
+    }
+    .auth-divider span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-secondary);
+      letter-spacing: 1px;
+    }
+
+    .auth-guest {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 15px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      background: none;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 8px 20px;
+      transition: all 0.2s;
+      letter-spacing: 1px;
+    }
+    .auth-guest:hover {
+      border-color: rgba(255,255,255,0.15);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+    .auth-guest:active {
+      transform: translateY(1px) scale(0.98);
+    }
+
+    /* Corner decorations */
+    .corner-decor {
+      position: fixed;
+      width: 60px;
+      height: 60px;
+      border-color: rgba(255,255,255,0.04);
+      border-style: solid;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .corner-decor.tl { top: 20px; left: 20px; border-width: 2px 0 0 2px; }
+    .corner-decor.tr { top: 20px; right: 20px; border-width: 2px 2px 0 0; }
+    .corner-decor.bl { bottom: 20px; left: 20px; border-width: 0 0 2px 2px; }
+    .corner-decor.br { bottom: 20px; right: 20px; border-width: 0 2px 2px 0; }
+
+    .auth-footer {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: rgba(138,136,128,0.4);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      z-index: 0;
+    }
+
+    @media (max-width: 480px) {
+      .auth-card {
+        margin: 12px;
+        padding: 28px 20px 24px;
+      }
+      .auth-logo { font-size: 34px; }
+      .auth-footer { font-size: 8px; bottom: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="corner-decor tl"></div>
+  <div class="corner-decor tr"></div>
+  <div class="corner-decor bl"></div>
+  <div class="corner-decor br"></div>
+  <div class="auth-footer">PressIt! Hydraulik-System v1.0</div>
+
+  <div class="auth-card">
+    <div class="auth-logo">PRESS<span>IT!</span></div>
+    <div class="auth-subtitle">Anmelden</div>
+    <div class="auth-hazard"></div>
+    <div class="auth-error" id="auth-error"></div>
+    <form class="auth-form" id="auth-form" autocomplete="off">
+      <label for="auth-email">E-Mail</label>
+      <input type="email" id="auth-email" placeholder="name@example.com" required autocomplete="email">
+      <label for="auth-password">Passwort</label>
+      <input type="password" id="auth-password" placeholder="Dein Passwort" required autocomplete="current-password">
+      <button type="submit" class="auth-submit" id="auth-submit">ANMELDEN</button>
+    </form>
+    <div class="auth-toggle">
+      Noch kein Konto? <a href="/register">Registrieren</a>
+    </div>
+    <div class="auth-divider"><span>ODER</span></div>
+    <button class="auth-guest" id="auth-guest">Als Gast spielen</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    (function() {
+      var SUPABASE_URL = 'https://nyrzmcjjgmtdvvdtfdld.supabase.co';
+      var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55cnptY2pqZ210ZHZ2ZHRmZGxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MDk3MjIsImV4cCI6MjA4NjM4NTcyMn0.yZzbyuuSPXo08kj9YceRLq2vPVX_oiC1rakpZeb_T_c';
+      var GAME_URL = '/example';
+
+      var sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      var form = document.getElementById('auth-form');
+      var emailInput = document.getElementById('auth-email');
+      var passwordInput = document.getElementById('auth-password');
+      var submitBtn = document.getElementById('auth-submit');
+      var errorEl = document.getElementById('auth-error');
+      var guestBtn = document.getElementById('auth-guest');
+
+      // Check if already logged in
+      sbClient.auth.getSession().then(function(result) {
+        if (result.data.session) {
+          window.location.href = GAME_URL;
+        }
+      });
+
+      function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.classList.add('show');
+      }
+
+      function hideError() {
+        errorEl.classList.remove('show');
+      }
+
+      function setLoading(loading) {
+        submitBtn.disabled = loading;
+        submitBtn.textContent = loading ? 'LADEN...' : 'ANMELDEN';
+      }
+
+      function translateError(error) {
+        var msg = (error.message || '').toLowerCase();
+        if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
+          return 'Ungueltige Anmeldedaten. Bitte pruefe E-Mail und Passwort.';
+        }
+        if (msg.includes('email not confirmed')) {
+          return 'E-Mail-Adresse noch nicht bestaetigt. Bitte pruefe deinen Posteingang.';
+        }
+        if (msg.includes('too many requests') || msg.includes('rate limit')) {
+          return 'Zu viele Versuche. Bitte warte einen Moment.';
+        }
+        if (msg.includes('network') || msg.includes('fetch')) {
+          return 'Netzwerkfehler. Bitte pruefe deine Internetverbindung.';
+        }
+        if (msg.includes('user not found')) {
+          return 'Kein Konto mit dieser E-Mail gefunden.';
+        }
+        return 'Anmeldung fehlgeschlagen: ' + error.message;
+      }
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        hideError();
+
+        var email = emailInput.value.trim();
+        var password = passwordInput.value;
+
+        if (!email || !password) {
+          showError('Bitte alle Felder ausfuellen.');
+          return;
+        }
+
+        setLoading(true);
+
+        sbClient.auth.signInWithPassword({
+          email: email,
+          password: password
+        }).then(function(result) {
+          if (result.error) {
+            showError(translateError(result.error));
+            setLoading(false);
+          } else {
+            window.location.href = GAME_URL;
+          }
+        }).catch(function(err) {
+          showError(translateError(err));
+          setLoading(false);
+        });
+      });
+
+      guestBtn.addEventListener('click', function() {
+        window.location.href = GAME_URL;
+      });
+    })();
+  </script>
+</body>
+</html>

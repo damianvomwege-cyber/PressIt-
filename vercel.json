@@ -1,6 +1,9 @@
 {
   "rewrites": [
-    { "source": "/example", "destination": "/index.html" }
+    { "source": "/example", "destination": "/index.html" },
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/register", "destination": "/register.html" }
   ],
   "redirects": [
     { "source": "/", "destination": "/example", "statusCode": 302 }
