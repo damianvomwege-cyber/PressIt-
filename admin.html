@@ -781,29 +781,52 @@
         <span class="stat-value green" id="stat-avg">--</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Ausstehende Anfragen</span>
-        <span class="stat-value orange" id="stat-pending">--</span>
+        <span class="stat-label">Admins</span>
+        <span class="stat-value orange" id="stat-admins">--</span>
       </div>
     </div>
 
     <!-- Tabs -->
     <div class="tabs-bar">
-      <button class="tab-btn" data-tab="requests">Anfragen <span id="pending-badge" style="display:none;background:var(--accent-red);color:#fff;font-family:'JetBrains Mono',monospace;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;"></span></button>
       <button class="tab-btn active" data-tab="players">Spieler</button>
+      <button class="tab-btn" data-tab="register">Registrieren</button>
       <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
       <button class="tab-btn" data-tab="objects">Objekte</button>
       <button class="tab-btn" data-tab="settings">Einstellungen</button>
     </div>
 
-    <!-- Requests Tab (Pending Approvals) -->
-    <div class="tab-panel" id="tab-requests">
-      <div id="requests-empty" style="display:none;padding:40px 0;text-align:center;">
-        <div style="font-size:48px;opacity:0.3;margin-bottom:12px;">&#10003;</div>
-        <p style="font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--text-secondary);">
-          Keine ausstehenden Anfragen
-        </p>
+    <!-- Register Tab (Admin Create User) -->
+    <div class="tab-panel" id="tab-register">
+      <div style="max-width:480px;">
+        <div class="settings-section">
+          <h3>Neuen Spieler erstellen</h3>
+          <p style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-secondary);margin-bottom:16px;">
+            Erstelle einen neuen Account. E-Mail-Verifikation wird uebersprungen.
+          </p>
+          <div class="form-group">
+            <label>Anzeigename</label>
+            <input type="text" id="reg-name" placeholder="Name des Spielers">
+          </div>
+          <div class="form-group">
+            <label>E-Mail</label>
+            <input type="email" id="reg-email" placeholder="name@example.com">
+          </div>
+          <div class="form-group">
+            <label>Passwort</label>
+            <input type="password" id="reg-password" placeholder="Mindestens 6 Zeichen">
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:12px;">
+            <label style="margin-bottom:0;">Admin-Rechte</label>
+            <label class="toggle">
+              <input type="checkbox" id="reg-admin">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div id="reg-error" style="display:none;padding:8px 12px;background:rgba(196,30,30,0.1);border:1px solid rgba(196,30,30,0.3);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent-red-glow);text-align:center;margin-bottom:12px;"></div>
+          <div id="reg-success" style="display:none;padding:8px 12px;background:rgba(46,204,64,0.1);border:1px solid rgba(46,204,64,0.3);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent-green);text-align:center;margin-bottom:12px;"></div>
+          <button class="modal-btn primary" id="reg-submit-btn" style="width:100%;margin-top:4px;">ERSTELLEN</button>
+        </div>
       </div>
-      <div id="requests-list" style="display:flex;flex-direction:column;gap:10px;"></div>
     </div>
 
     <!-- Players Tab -->
@@ -821,7 +844,6 @@
               <th>Gepresst</th>
               <th>Freigeschaltet</th>
               <th>Admin</th>
-              <th>Status</th>
               <th>Registriert</th>
               <th>Aktionen</th>
             </tr>
@@ -1187,9 +1209,10 @@
       document.getElementById('top-nav').style.display = 'flex';
       document.getElementById('main-content').classList.add('show');
 
-      await Promise.all([loadStats(), loadPlayers(), loadPendingRequests()]);
+      await Promise.all([loadStats(), loadPlayers()]);
       renderObjectsTab();
       setupEventListeners();
+      setupRegisterForm();
     }
 
     function showLoginForm() {
@@ -1262,7 +1285,7 @@
         document.getElementById('stat-coins').textContent = fmt(data.total_coins || 0);
         document.getElementById('stat-crushed').textContent = fmt(data.total_crushed || 0);
         document.getElementById('stat-avg').textContent = fmt(Math.round(data.avg_coins || 0));
-        document.getElementById('stat-pending').textContent = fmt(data.pending_approvals || 0);
+        document.getElementById('stat-admins').textContent = fmt(data.admin_count || 0);
         document.getElementById('setting-total-users').textContent = fmt(data.total_users || 0);
         document.getElementById('setting-url').textContent = SUPABASE_URL;
         document.getElementById('setting-admin-email').textContent = currentUser.email;
@@ -1280,86 +1303,79 @@
     }
 
     // ═══════════════════════════════════════════════════
-    // PENDING REQUESTS
+    // ADMIN CREATE USER
     // ═══════════════════════════════════════════════════
-    let pendingUsers = [];
+    function setupRegisterForm() {
+      const nameInput = document.getElementById('reg-name');
+      const emailInput = document.getElementById('reg-email');
+      const passwordInput = document.getElementById('reg-password');
+      const adminToggle = document.getElementById('reg-admin');
+      const submitBtn = document.getElementById('reg-submit-btn');
+      const errorEl = document.getElementById('reg-error');
+      const successEl = document.getElementById('reg-success');
 
-    async function loadPendingRequests() {
-      try {
-        const { data, error } = await sb.from('profiles')
-          .select('*')
-          .eq('approved', false)
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        pendingUsers = data || [];
-        renderPendingRequests();
-        updatePendingBadge();
-      } catch (e) {
-        console.error('Pending requests error:', e);
-      }
+      submitBtn.addEventListener('click', async function() {
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+
+        const name = nameInput.value.trim();
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+        const isAdmin = adminToggle.checked;
+
+        if (!name || !email || !password) {
+          errorEl.textContent = 'Bitte alle Felder ausfuellen.';
+          errorEl.style.display = 'block';
+          return;
+        }
+        if (password.length < 6) {
+          errorEl.textContent = 'Passwort muss mindestens 6 Zeichen lang sein.';
+          errorEl.style.display = 'block';
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'ERSTELLEN...';
+
+        try {
+          const { data: { session } } = await sb.auth.getSession();
+          const res = await fetch(SUPABASE_URL + '/functions/v1/admin-create-user', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + session.access_token
+            },
+            body: JSON.stringify({
+              display_name: name,
+              email: email,
+              password: password,
+              is_admin: isAdmin
+            })
+          });
+
+          const result = await res.json();
+
+          if (!res.ok) {
+            throw new Error(result.error || 'Unbekannter Fehler');
+          }
+
+          successEl.textContent = 'Spieler "' + name + '" wurde erfolgreich erstellt!';
+          successEl.style.display = 'block';
+          nameInput.value = '';
+          emailInput.value = '';
+          passwordInput.value = '';
+          adminToggle.checked = false;
+          toast('Spieler erstellt: ' + name, 'success');
+          await Promise.all([loadPlayers(), loadStats()]);
+        } catch (e) {
+          errorEl.textContent = 'Fehler: ' + e.message;
+          errorEl.style.display = 'block';
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'ERSTELLEN';
+        }
+      });
     }
-
-    function renderPendingRequests() {
-      const list = document.getElementById('requests-list');
-      const empty = document.getElementById('requests-empty');
-
-      if (pendingUsers.length === 0) {
-        list.innerHTML = '';
-        empty.style.display = 'block';
-        return;
-      }
-      empty.style.display = 'none';
-
-      list.innerHTML = pendingUsers.map(p => {
-        const date = p.created_at ? new Date(p.created_at).toLocaleString('de-DE') : '--';
-        return `<div class="request-card" id="req-${p.id}">
-          <div class="request-info">
-            <div class="request-name">${esc(p.display_name || 'Unbekannt')}</div>
-            <div class="request-email">${esc(p.id.substring(0, 8))}...</div>
-            <div class="request-date">Registriert: ${date}</div>
-          </div>
-          <div class="request-actions">
-            <button class="req-btn approve" onclick="approveUser('${p.id}')">GENEHMIGEN</button>
-            <button class="req-btn deny" onclick="denyUser('${p.id}')">ABLEHNEN</button>
-          </div>
-        </div>`;
-      }).join('');
-    }
-
-    function updatePendingBadge() {
-      const badge = document.getElementById('pending-badge');
-      if (pendingUsers.length > 0) {
-        badge.textContent = pendingUsers.length;
-        badge.style.display = 'inline';
-      } else {
-        badge.style.display = 'none';
-      }
-    }
-
-    window.approveUser = async function(id) {
-      try {
-        const { error } = await sb.from('profiles')
-          .update({ approved: true })
-          .eq('id', id);
-        if (error) throw error;
-        toast('Spieler genehmigt!', 'success');
-        await Promise.all([loadPendingRequests(), loadPlayers(), loadStats()]);
-      } catch (e) {
-        toast('Fehler: ' + e.message, 'error');
-      }
-    };
-
-    window.denyUser = async function(id) {
-      try {
-        // Delete the profile (user won't be able to access anything)
-        const { error } = await sb.from('profiles').delete().eq('id', id);
-        if (error) throw error;
-        toast('Anfrage abgelehnt', 'success');
-        await Promise.all([loadPendingRequests(), loadPlayers(), loadStats()]);
-      } catch (e) {
-        toast('Fehler: ' + e.message, 'error');
-      }
-    };
 
     // ═══════════════════════════════════════════════════
     // PLAYERS
@@ -1397,7 +1413,6 @@
           <td class="crushed">${fmt(p.total_crushed || 0)}</td>
           <td>${unlocked}</td>
           <td><span class="admin-badge-sm ${adminCls}">${adminTxt}</span></td>
-          <td><span class="admin-badge-sm ${p.approved ? 'yes' : 'no'}" style="${p.approved ? 'background:rgba(46,204,64,0.15);color:var(--accent-green);border-color:rgba(46,204,64,0.3);' : 'background:rgba(232,122,30,0.15);color:var(--accent-orange);border-color:rgba(232,122,30,0.3);'}">${p.approved ? 'AKTIV' : 'AUSSTEHEND'}</span></td>
           <td>${date}</td>
           <td>
             <div class="action-btns">

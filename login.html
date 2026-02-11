@@ -346,14 +346,7 @@
       // Check if already logged in
       sbClient.auth.getSession().then(function(result) {
         if (result.data.session) {
-          sbClient.from('profiles').select('approved').eq('id', result.data.session.user.id).single().then(function(profileResult) {
-            if (profileResult.data && profileResult.data.approved) {
-              window.location.href = GAME_URL;
-            } else {
-              // Show pending message
-              showError('Dein Konto wartet noch auf Freigabe durch den Admin.');
-            }
-          });
+          window.location.href = GAME_URL;
         }
       });
 
@@ -413,17 +406,7 @@
             showError(translateError(result.error));
             setLoading(false);
           } else {
-            // Check if approved before redirecting
-            sbClient.from('profiles').select('approved').eq('id', result.data.user.id).single().then(function(profileResult) {
-              if (profileResult.data && profileResult.data.approved) {
-                window.location.href = GAME_URL;
-              } else {
-                // Sign them out and show pending message
-                sbClient.auth.signOut({ scope: 'local' });
-                showError('Dein Konto wartet noch auf Freigabe durch den Admin.');
-                setLoading(false);
-              }
-            });
+            window.location.href = GAME_URL;
           }
         }).catch(function(err) {
           showError(translateError(err));

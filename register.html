@@ -365,13 +365,7 @@
       // Check if already logged in
       sbClient.auth.getSession().then(function(result) {
         if (result.data.session) {
-          // Check if approved
-          sbClient.from('profiles').select('approved').eq('id', result.data.session.user.id).single().then(function(profileResult) {
-            if (profileResult.data && profileResult.data.approved) {
-              window.location.href = GAME_URL;
-            }
-            // If not approved, stay on register page (they can see the message)
-          });
+          window.location.href = GAME_URL;
         }
       });
 
@@ -457,20 +451,11 @@
             showError('Diese E-Mail-Adresse ist bereits registriert.');
             setLoading(false);
           } else {
-            // Sign out and notify admin
-            var userId = result.data.user ? result.data.user.id : null;
+            // Sign out and show email verification message
             sbClient.auth.signOut({ scope: 'local' }).then(function() {
-              showSuccess('Registrierung eingereicht! Der Admin muss dein Konto freigeben bevor du spielen kannst.');
+              showSuccess('Registrierung erfolgreich! Bitte pruefe deinen Posteingang und bestatige deine E-Mail-Adresse, um dich anmelden zu koennen.');
               form.style.display = 'none';
               setLoading(false);
-              // Notify admin via Edge Function (fire-and-forget)
-              if (userId) {
-                fetch(SUPABASE_URL + '/functions/v1/notify-registration', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ user_id: userId })
-                }).catch(function() {});
-              }
             });
           }
         }).catch(function(err) {
