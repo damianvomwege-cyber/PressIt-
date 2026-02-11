@@ -456,19 +456,21 @@
           } else if (result.data.user && result.data.user.identities && result.data.user.identities.length === 0) {
             showError('Diese E-Mail-Adresse ist bereits registriert.');
             setLoading(false);
-          } else if (result.data.session) {
-            // Auto-confirmed — sign out and wait for admin approval
-            sbClient.auth.signOut({ scope: 'local' }).then(function() {
-              showSuccess('Registrierung eingereicht! Der Admin muss dein Konto freigeben bevor du spielen kannst.');
-              form.style.display = 'none';
-              setLoading(false);
-            });
           } else {
-            // Email confirmation required — sign out and wait for admin approval
+            // Sign out and notify admin
+            var userId = result.data.user ? result.data.user.id : null;
             sbClient.auth.signOut({ scope: 'local' }).then(function() {
               showSuccess('Registrierung eingereicht! Der Admin muss dein Konto freigeben bevor du spielen kannst.');
               form.style.display = 'none';
               setLoading(false);
+              // Notify admin via Edge Function (fire-and-forget)
+              if (userId) {
+                fetch(SUPABASE_URL + '/functions/v1/notify-registration', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ user_id: userId })
+                }).catch(function() {});
+              }
             });
           }
         }).catch(function(err) {
