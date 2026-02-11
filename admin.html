@@ -718,13 +718,15 @@
     <div class="spinner"></div>
   </div>
 
-  <!-- Admin Login -->
+  <!-- Admin Login / Register -->
   <div id="admin-login">
     <div class="admin-login-card">
       <div class="logo">PRESS<span>IT!</span></div>
-      <div class="subtitle">Admin Panel</div>
+      <div class="subtitle" id="admin-auth-subtitle">Admin Panel</div>
       <div class="hazard"></div>
       <div id="admin-login-error"></div>
+
+      <!-- Login Form -->
       <form id="admin-login-form" autocomplete="off">
         <label for="admin-login-id">E-Mail oder Benutzername</label>
         <input type="text" id="admin-login-id" placeholder="E-Mail oder Benutzername" required autocomplete="username">
@@ -732,6 +734,24 @@
         <input type="password" id="admin-password" placeholder="Passwort" required autocomplete="current-password">
         <button type="submit" id="admin-login-btn">ANMELDEN</button>
       </form>
+
+      <!-- Register Form (hidden by default) -->
+      <form id="admin-register-form" autocomplete="off" style="display:none;">
+        <label for="admin-reg-name">Anzeigename</label>
+        <input type="text" id="admin-reg-name" placeholder="Dein Name" required autocomplete="name">
+        <label for="admin-reg-email">E-Mail</label>
+        <input type="email" id="admin-reg-email" placeholder="name@example.com" required autocomplete="email">
+        <label for="admin-reg-password">Passwort</label>
+        <input type="password" id="admin-reg-password" placeholder="Mindestens 6 Zeichen" required autocomplete="new-password">
+        <button type="submit" id="admin-reg-btn">REGISTRIEREN</button>
+      </form>
+
+      <div id="admin-reg-success" style="display:none;width:100%;padding:10px 14px;background:rgba(46,204,64,0.1);border:1px solid rgba(46,204,64,0.3);border-radius:8px;color:var(--accent-green);font-family:'JetBrains Mono',monospace;font-size:12px;text-align:center;"></div>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-secondary);text-align:center;">
+        <span id="admin-auth-toggle-text">Noch kein Konto?</span>
+        <a href="#" id="admin-auth-toggle" style="color:var(--accent-red-glow);text-decoration:none;transition:color 0.2s;">Registrieren</a>
+      </div>
     </div>
   </div>
 
@@ -1228,13 +1248,43 @@
     }
 
     function setupLoginForm() {
-      var form = document.getElementById('admin-login-form');
+      var loginForm = document.getElementById('admin-login-form');
+      var regForm = document.getElementById('admin-register-form');
       var loginIdInput = document.getElementById('admin-login-id');
       var passwordInput = document.getElementById('admin-password');
       var submitBtn = document.getElementById('admin-login-btn');
       var errorEl = document.getElementById('admin-login-error');
+      var toggleLink = document.getElementById('admin-auth-toggle');
+      var toggleText = document.getElementById('admin-auth-toggle-text');
+      var subtitle = document.getElementById('admin-auth-subtitle');
+      var regSuccess = document.getElementById('admin-reg-success');
+      var isLoginMode = true;
 
-      form.addEventListener('submit', async function(e) {
+      // Toggle between login and register
+      toggleLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        isLoginMode = !isLoginMode;
+        errorEl.classList.remove('show');
+        errorEl.textContent = '';
+        regSuccess.style.display = 'none';
+
+        if (isLoginMode) {
+          loginForm.style.display = '';
+          regForm.style.display = 'none';
+          subtitle.textContent = 'Admin Panel';
+          toggleText.textContent = 'Noch kein Konto?';
+          toggleLink.textContent = 'Registrieren';
+        } else {
+          loginForm.style.display = 'none';
+          regForm.style.display = '';
+          subtitle.textContent = 'Registrieren';
+          toggleText.textContent = 'Bereits ein Konto?';
+          toggleLink.textContent = 'Anmelden';
+        }
+      });
+
+      // Login submit
+      loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         errorEl.classList.remove('show');
         errorEl.textContent = '';
@@ -1269,6 +1319,75 @@
         if (data && data.user) {
           await checkAdminAndLoad(data.user);
         }
+      });
+
+      // Register submit
+      var regNameInput = document.getElementById('admin-reg-name');
+      var regEmailInput = document.getElementById('admin-reg-email');
+      var regPasswordInput = document.getElementById('admin-reg-password');
+      var regBtn = document.getElementById('admin-reg-btn');
+
+      regForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        errorEl.classList.remove('show');
+        errorEl.textContent = '';
+        regSuccess.style.display = 'none';
+        regBtn.disabled = true;
+        regBtn.textContent = 'LADEN...';
+
+        var name = regNameInput.value.trim();
+        var email = regEmailInput.value.trim();
+        var password = regPasswordInput.value;
+
+        if (!name || !email || !password) {
+          errorEl.textContent = 'Bitte alle Felder ausfuellen.';
+          errorEl.classList.add('show');
+          regBtn.disabled = false;
+          regBtn.textContent = 'REGISTRIEREN';
+          return;
+        }
+        if (password.length < 6) {
+          errorEl.textContent = 'Passwort muss mindestens 6 Zeichen lang sein.';
+          errorEl.classList.add('show');
+          regBtn.disabled = false;
+          regBtn.textContent = 'REGISTRIEREN';
+          return;
+        }
+
+        var { data, error } = await sb.auth.signUp({
+          email: email,
+          password: password,
+          options: {
+            data: { display_name: name },
+            emailRedirectTo: window.location.origin + '/admin'
+          }
+        });
+
+        if (error) {
+          var msg = error.message;
+          if (msg.includes('already registered')) msg = 'Diese E-Mail ist bereits registriert.';
+          errorEl.textContent = msg;
+          errorEl.classList.add('show');
+          regBtn.disabled = false;
+          regBtn.textContent = 'REGISTRIEREN';
+          return;
+        }
+
+        if (data && data.user && data.user.identities && data.user.identities.length === 0) {
+          errorEl.textContent = 'Diese E-Mail ist bereits registriert.';
+          errorEl.classList.add('show');
+          regBtn.disabled = false;
+          regBtn.textContent = 'REGISTRIEREN';
+          return;
+        }
+
+        // Sign out (they need email verification first)
+        await sb.auth.signOut({ scope: 'local' });
+        regForm.style.display = 'none';
+        regSuccess.textContent = 'Registrierung erfolgreich! Bitte pruefe deinen Posteingang und bestatige deine E-Mail. Ein Admin muss dir danach Admin-Rechte geben.';
+        regSuccess.style.display = 'block';
+        regBtn.disabled = false;
+        regBtn.textContent = 'REGISTRIEREN';
       });
     }
 
