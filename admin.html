@@ -1354,38 +1354,22 @@
           return;
         }
 
-        var { data, error } = await sb.auth.signUp({
-          email: email,
-          password: password,
-          options: {
-            data: { display_name: name },
-            emailRedirectTo: window.location.origin + '/admin'
-          }
-        });
+        try {
+          var res = await fetch(SUPABASE_URL + '/functions/v1/admin-register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ display_name: name, email: email, password: password })
+          });
+          var result = await res.json();
+          if (!res.ok) throw new Error(result.error || 'Registrierung fehlgeschlagen');
 
-        if (error) {
-          var msg = error.message;
-          if (msg.includes('already registered')) msg = 'Diese E-Mail ist bereits registriert.';
-          errorEl.textContent = msg;
+          regForm.style.display = 'none';
+          regSuccess.textContent = 'Registrierung erfolgreich! Ein Admin muss dir jetzt Admin-Rechte geben, bevor du dich anmelden kannst.';
+          regSuccess.style.display = 'block';
+        } catch (err) {
+          errorEl.textContent = err.message;
           errorEl.classList.add('show');
-          regBtn.disabled = false;
-          regBtn.textContent = 'REGISTRIEREN';
-          return;
         }
-
-        if (data && data.user && data.user.identities && data.user.identities.length === 0) {
-          errorEl.textContent = 'Diese E-Mail ist bereits registriert.';
-          errorEl.classList.add('show');
-          regBtn.disabled = false;
-          regBtn.textContent = 'REGISTRIEREN';
-          return;
-        }
-
-        // Sign out (they need email verification first)
-        await sb.auth.signOut({ scope: 'local' });
-        regForm.style.display = 'none';
-        regSuccess.textContent = 'Registrierung erfolgreich! Bitte pruefe deinen Posteingang und bestatige deine E-Mail. Ein Admin muss dir danach Admin-Rechte geben.';
-        regSuccess.style.display = 'block';
         regBtn.disabled = false;
         regBtn.textContent = 'REGISTRIEREN';
       });
