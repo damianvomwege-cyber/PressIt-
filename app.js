@@ -539,12 +539,14 @@ async function initAuth() {
       updateAuthUI();
       await loadCloudSave();
     } else {
-      // No session — default to guest mode (user can click Anmelden to go to /login)
-      isGuest = true;
+      // No session — redirect to login
+      window.location.href = '/login';
+      return;
     }
   } catch (e) {
     console.warn('Auth session check failed:', e);
-    isGuest = true;
+    window.location.href = '/login';
+    return;
   }
   // Listen for auth state changes (token refresh, sign out from other tab)
   sbClient.auth.onAuthStateChange(function(event, session) {

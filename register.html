@@ -342,8 +342,6 @@
     <div class="auth-toggle">
       Bereits ein Konto? <a href="/login">Anmelden</a>
     </div>
-    <div class="auth-divider"><span>ODER</span></div>
-    <button class="auth-guest" id="auth-guest">Als Gast spielen</button>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -351,7 +349,7 @@
     (function() {
       var SUPABASE_URL = 'https://nyrzmcjjgmtdvvdtfdld.supabase.co';
       var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55cnptY2pqZ210ZHZ2ZHRmZGxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MDk3MjIsImV4cCI6MjA4NjM4NTcyMn0.yZzbyuuSPXo08kj9YceRLq2vPVX_oiC1rakpZeb_T_c';
-      var GAME_URL = '/example';
+      var GAME_URL = '/game';
 
       var sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -443,7 +441,7 @@
             data: {
               display_name: displayName
             },
-            emailRedirectTo: window.location.origin + '/example'
+            emailRedirectTo: window.location.origin + '/game'
           }
         }).then(function(result) {
           if (result.error) {
