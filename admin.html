@@ -57,7 +57,80 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--steel-light); border-radius: 3px; }
 
-    /* ── ACCESS DENIED ── */
+    /* ── ADMIN LOGIN ── */
+    #admin-login {
+      display: none;
+      position: fixed; inset: 0;
+      background: var(--steel-dark);
+      flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    #admin-login.show { display: flex; }
+    .admin-login-card {
+      background: var(--steel-mid);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 40px 36px;
+      max-width: 400px; width: 90%;
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+      animation: cardEnter 0.4s ease;
+    }
+    @keyframes cardEnter { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .admin-login-card .logo {
+      font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 4px;
+    }
+    .admin-login-card .logo span { color: var(--accent-red); }
+    .admin-login-card .subtitle {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      color: var(--accent-orange); letter-spacing: 2px; text-transform: uppercase;
+    }
+    .admin-login-card .hazard {
+      width: 100%; height: 4px;
+      background: repeating-linear-gradient(-45deg, var(--accent-yellow), var(--accent-yellow) 8px, var(--steel-dark) 8px, var(--steel-dark) 16px);
+      border-radius: 2px;
+    }
+    .admin-login-card form {
+      width: 100%; display: flex; flex-direction: column; gap: 12px;
+    }
+    .admin-login-card label {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase;
+    }
+    .admin-login-card input {
+      width: 100%; padding: 12px 14px;
+      background: rgba(26,26,30,0.8); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace; font-size: 14px;
+      outline: none; transition: all 0.2s;
+    }
+    .admin-login-card input:focus {
+      border-color: var(--accent-red);
+      box-shadow: 0 0 12px rgba(196,30,30,0.2);
+    }
+    .admin-login-card input::placeholder { color: var(--steel-light); }
+    .admin-login-card button[type="submit"] {
+      width: 100%; padding: 14px;
+      background: linear-gradient(180deg, rgba(196,30,30,0.3), rgba(196,30,30,0.1));
+      border: 2px solid var(--accent-red); border-radius: 8px;
+      color: var(--accent-red-glow);
+      font-family: 'Bebas Neue', sans-serif; font-size: 20px;
+      letter-spacing: 3px; cursor: pointer; transition: all 0.2s;
+    }
+    .admin-login-card button[type="submit"]:hover {
+      background: linear-gradient(180deg, rgba(196,30,30,0.5), rgba(196,30,30,0.2));
+      box-shadow: 0 0 24px rgba(196,30,30,0.3);
+    }
+    .admin-login-card button[type="submit"]:disabled {
+      opacity: 0.4; cursor: not-allowed;
+    }
+    #admin-login-error {
+      display: none; width: 100%; padding: 10px 14px;
+      background: rgba(196,30,30,0.15); border: 1px solid rgba(196,30,30,0.3);
+      border-radius: 8px; color: var(--accent-red-glow);
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      text-align: center;
+    }
+    #admin-login-error.show { display: block; }
     #access-denied {
       display: none;
       position: fixed; inset: 0;
@@ -595,11 +668,28 @@
     <div class="spinner"></div>
   </div>
 
-  <!-- Access Denied -->
+  <!-- Admin Login -->
+  <div id="admin-login">
+    <div class="admin-login-card">
+      <div class="logo">PRESS<span>IT!</span></div>
+      <div class="subtitle">Admin Panel</div>
+      <div class="hazard"></div>
+      <div id="admin-login-error"></div>
+      <form id="admin-login-form" autocomplete="off">
+        <label for="admin-email">E-Mail</label>
+        <input type="email" id="admin-email" placeholder="admin@example.com" required>
+        <label for="admin-password">Passwort</label>
+        <input type="password" id="admin-password" placeholder="Passwort" required>
+        <button type="submit" id="admin-login-btn">ANMELDEN</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Access Denied (logged in but not admin) -->
   <div id="access-denied">
     <div class="lock-icon">&#128274;</div>
     <h1>KEIN ZUGRIFF</h1>
-    <p>Du bist nicht als Administrator angemeldet oder hast keine Berechtigung, auf dieses Panel zuzugreifen.</p>
+    <p>Dieses Konto hat keine Administrator-Berechtigung.</p>
     <a href="/game">Zurueck zum Spiel</a>
   </div>
 
@@ -1001,13 +1091,16 @@
       const { data: { session } } = await sb.auth.getSession();
 
       if (!session) {
-        showAccessDenied();
+        showLoginForm();
         return;
       }
 
-      currentUser = session.user;
+      await checkAdminAndLoad(session.user);
+    }
 
-      // Check admin status
+    async function checkAdminAndLoad(user) {
+      currentUser = user;
+
       const { data: profile, error } = await sb.from('profiles')
         .select('is_admin, display_name')
         .eq('id', currentUser.id)
@@ -1021,18 +1114,69 @@
       // User is admin — show dashboard
       document.getElementById('admin-name').textContent = profile.display_name || currentUser.email;
       document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('admin-login').classList.remove('show');
       document.getElementById('top-nav').style.display = 'flex';
       document.getElementById('main-content').classList.add('show');
 
-      // Load data
       await Promise.all([loadStats(), loadPlayers()]);
       renderObjectsTab();
       setupEventListeners();
     }
 
+    function showLoginForm() {
+      document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('admin-login').classList.add('show');
+      setupLoginForm();
+    }
+
     function showAccessDenied() {
       document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('admin-login').classList.remove('show');
       document.getElementById('access-denied').classList.add('show');
+    }
+
+    function setupLoginForm() {
+      var form = document.getElementById('admin-login-form');
+      var emailInput = document.getElementById('admin-email');
+      var passwordInput = document.getElementById('admin-password');
+      var submitBtn = document.getElementById('admin-login-btn');
+      var errorEl = document.getElementById('admin-login-error');
+
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        errorEl.classList.remove('show');
+        errorEl.textContent = '';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'LADEN...';
+
+        var email = emailInput.value.trim();
+        var password = passwordInput.value;
+
+        if (!email || !password) {
+          errorEl.textContent = 'Bitte E-Mail und Passwort eingeben.';
+          errorEl.classList.add('show');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'ANMELDEN';
+          return;
+        }
+
+        var { data, error } = await sb.auth.signInWithPassword({ email: email, password: password });
+
+        if (error) {
+          var msg = 'Anmeldung fehlgeschlagen.';
+          if (error.message.includes('Invalid login')) msg = 'Falsche E-Mail oder Passwort.';
+          else if (error.message.includes('Email not confirmed')) msg = 'E-Mail nicht bestaetigt.';
+          errorEl.textContent = msg;
+          errorEl.classList.add('show');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'ANMELDEN';
+          return;
+        }
+
+        if (data && data.user) {
+          await checkAdminAndLoad(data.user);
+        }
+      });
     }
 
     // ═══════════════════════════════════════════════════
