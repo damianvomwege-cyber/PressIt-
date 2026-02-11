@@ -365,7 +365,13 @@
       // Check if already logged in
       sbClient.auth.getSession().then(function(result) {
         if (result.data.session) {
-          window.location.href = GAME_URL;
+          // Check if approved
+          sbClient.from('profiles').select('approved').eq('id', result.data.session.user.id).single().then(function(profileResult) {
+            if (profileResult.data && profileResult.data.approved) {
+              window.location.href = GAME_URL;
+            }
+            // If not approved, stay on register page (they can see the message)
+          });
         }
       });
 
@@ -451,13 +457,19 @@
             showError('Diese E-Mail-Adresse ist bereits registriert.');
             setLoading(false);
           } else if (result.data.session) {
-            // Auto-confirmed, redirect to game
-            window.location.href = GAME_URL;
+            // Auto-confirmed — sign out and wait for admin approval
+            sbClient.auth.signOut().then(function() {
+              showSuccess('Registrierung eingereicht! Der Admin muss dein Konto freigeben bevor du spielen kannst.');
+              form.style.display = 'none';
+              setLoading(false);
+            });
           } else {
-            // Email confirmation required
-            showSuccess('Bestaetigungs-E-Mail gesendet! Pruefe deinen Posteingang.');
-            form.style.display = 'none';
-            setLoading(false);
+            // Email confirmation required — sign out and wait for admin approval
+            sbClient.auth.signOut().then(function() {
+              showSuccess('Registrierung eingereicht! Der Admin muss dein Konto freigeben bevor du spielen kannst.');
+              form.style.display = 'none';
+              setLoading(false);
+            });
           }
         }).catch(function(err) {
           showError(translateError(err));
@@ -465,9 +477,7 @@
         });
       });
 
-      guestBtn.addEventListener('click', function() {
-        window.location.href = GAME_URL;
-      });
+
     })();
   </script>
 </body>

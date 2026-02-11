@@ -534,6 +534,13 @@ async function initAuth() {
   try {
     var { data } = await sbClient.auth.getSession();
     if (data && data.session && data.session.user) {
+      // Check if user is approved before allowing access
+      var profileCheck = await sbClient.from('profiles').select('approved').eq('id', data.session.user.id).single();
+      if (!profileCheck.data || !profileCheck.data.approved) {
+        await sbClient.auth.signOut();
+        window.location.href = '/login';
+        return;
+      }
       currentUser = data.session.user;
       isGuest = false;
       updateAuthUI();
