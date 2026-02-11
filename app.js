@@ -372,7 +372,10 @@ async function signUp(email, password, displayName) {
   var { data, error } = await sbClient.auth.signUp({
     email: email,
     password: password,
-    options: { data: { display_name: displayName || email.split('@')[0] } }
+    options: {
+      data: { display_name: displayName || email.split('@')[0] },
+      emailRedirectTo: window.location.origin + window.location.pathname
+    }
   });
   if (error) return { user: null, error: error.message };
   currentUser = data.user;
