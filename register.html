@@ -458,14 +458,14 @@
             setLoading(false);
           } else if (result.data.session) {
             // Auto-confirmed — sign out and wait for admin approval
-            sbClient.auth.signOut().then(function() {
+            sbClient.auth.signOut({ scope: 'local' }).then(function() {
               showSuccess('Registrierung eingereicht! Der Admin muss dein Konto freigeben bevor du spielen kannst.');
               form.style.display = 'none';
               setLoading(false);
             });
           } else {
             // Email confirmation required — sign out and wait for admin approval
-            sbClient.auth.signOut().then(function() {
+            sbClient.auth.signOut({ scope: 'local' }).then(function() {
               showSuccess('Registrierung eingereicht! Der Admin muss dein Konto freigeben bevor du spielen kannst.');
               form.style.display = 'none';
               setLoading(false);

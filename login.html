@@ -419,7 +419,7 @@
                 window.location.href = GAME_URL;
               } else {
                 // Sign them out and show pending message
-                sbClient.auth.signOut();
+                sbClient.auth.signOut({ scope: 'local' });
                 showError('Dein Konto wartet noch auf Freigabe durch den Admin.');
                 setLoading(false);
               }

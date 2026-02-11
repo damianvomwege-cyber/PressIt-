@@ -423,7 +423,7 @@ async function signIn(email, password) {
 
 async function signOut() {
   if (!sbClient) return;
-  await sbClient.auth.signOut();
+  await sbClient.auth.signOut({ scope: 'local' });
   currentUser = null;
   isGuest = false;
   updateAuthUI();
@@ -537,7 +537,7 @@ async function initAuth() {
       // Check if user is approved before allowing access
       var profileCheck = await sbClient.from('profiles').select('approved').eq('id', data.session.user.id).single();
       if (!profileCheck.data || !profileCheck.data.approved) {
-        await sbClient.auth.signOut();
+        await sbClient.auth.signOut({ scope: 'local' });
         window.location.href = '/login';
         return;
       }
