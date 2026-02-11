@@ -372,9 +372,6 @@
         if (msg.includes('email not confirmed')) {
           return 'E-Mail-Adresse noch nicht bestaetigt. Bitte pruefe deinen Posteingang.';
         }
-        if (msg.includes('too many requests') || msg.includes('rate limit')) {
-          return 'Zu viele Versuche. Bitte warte einen Moment.';
-        }
         if (msg.includes('network') || msg.includes('fetch')) {
           return 'Netzwerkfehler. Bitte pruefe deine Internetverbindung.';
         }

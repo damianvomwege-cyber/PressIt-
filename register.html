@@ -402,9 +402,6 @@
         if (msg.includes('valid email') || msg.includes('invalid email')) {
           return 'Bitte gib eine gueltige E-Mail-Adresse ein.';
         }
-        if (msg.includes('too many requests') || msg.includes('rate limit')) {
-          return 'Zu viele Versuche. Bitte warte einen Moment.';
-        }
         if (msg.includes('network') || msg.includes('fetch')) {
           return 'Netzwerkfehler. Bitte pruefe deine Internetverbindung.';
         }
